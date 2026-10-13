@@ -76,7 +76,7 @@ EnsureRequiredDirectories() {
             createdAny := true
         } catch Error as err {
             MsgBox("Aviso: No se pudo crear la carpeta de macros:`n" . macroFolder . "`n`nDetalle: " . err.Message,
-                "QA POS Automation", "Icon!")
+                "QA POS Automation", "Icon! 262144")
         }
     }
 
@@ -86,7 +86,7 @@ EnsureRequiredDirectories() {
             createdAny := true
         } catch Error as err {
             MsgBox("Aviso: No se pudo crear la carpeta de reportes:`n" . reportsFolder . "`n`nDetalle: " . err.Message,
-                "QA POS Automation", "Icon!")
+                "QA POS Automation", "Icon! 262144")
         }
     }
 
@@ -441,33 +441,42 @@ DetectTargetWindow(*) {
 }
 
 EnsureTargetWindowActive() {
-    global targetWinTitle, edtTargetWin
+    global targetWinTitle, edtTargetWin, mainGui
     currentTitle := Trim(edtTargetWin.Text)
     if (currentTitle == "")
         currentTitle := "Xstore"
 
-    ; Coincidencia directa o por subcadena
+    foundHwnd := 0
     if WinExist(currentTitle) {
-        if (!WinActive(currentTitle)) {
-            WinActivate(currentTitle)
-            WinWaitActive(currentTitle, , 3)
-        }
-        return WinActive(currentTitle)
-    }
-
-    ; Busqueda de respaldo por terminos clave de terminales POS
-    for candidate in [currentTitle, "xstore", "POS", "Oracle Retail", "Point of Service"] {
-        if WinExist(candidate) {
-            WinActivate(candidate)
-            WinWaitActive(candidate, , 2)
-            if WinActive(candidate) {
-                targetWinTitle := WinGetTitle(candidate)
-                edtTargetWin.Text := targetWinTitle
-                return true
+        foundHwnd := WinExist(currentTitle)
+    } else {
+        for candidate in [currentTitle, "xstore", "POS", "Oracle Retail", "Point of Service"] {
+            if WinExist(candidate) {
+                h := WinExist(candidate)
+                t := WinGetTitle(h)
+                if (h != mainGui.Hwnd && !InStr(t, "QA POS Automation Macro") && !RegExMatch(t, "i)^(Program Manager|Default IME|MSCTFIME UI)$")) {
+                    foundHwnd := h
+                    targetWinTitle := t
+                    edtTargetWin.Text := t
+                    break
+                }
             }
         }
     }
-    return false
+
+    if (!foundHwnd)
+        return false
+
+    ; Si la ventana esta minimizada, restaurarla a su tamano normal
+    if (WinGetMinMax("ahk_id " . foundHwnd) == -1)
+        WinRestore("ahk_id " . foundHwnd)
+
+    ; Forzar activacion en primer plano
+    WinActivate("ahk_id " . foundHwnd)
+    DllCall("SetForegroundWindow", "Ptr", foundHwnd)
+    DllCall("BringWindowToTop", "Ptr", foundHwnd)
+    Sleep(120)
+    return true
 }
 
 ; ==============================================================================
@@ -496,10 +505,12 @@ ToggleInfiniteMode(*) {
     }
 }
 
-RefreshMacroList(*) {
-    global ddlMacros, ddlEditMacros, btnPlay, macroFolder
+RefreshMacroList(preferredMacro := "", *) {
+    global ddlMacros, ddlEditMacros, btnPlay, macroFolder, isRecording, isPlaying
 
     EnsureRequiredDirectories()
+
+    currentSel := (Type(preferredMacro) == "String" && preferredMacro != "") ? preferredMacro : ddlMacros.Text
 
     macroFiles := []
     loop files, macroFolder . "\*.txt" {
@@ -511,10 +522,17 @@ RefreshMacroList(*) {
 
     if (macroFiles.Length > 0) {
         ddlMacros.Add(macroFiles)
-        ddlMacros.Choose(1)
-
         ddlEditMacros.Add(macroFiles)
-        ddlEditMacros.Choose(1)
+
+        chosenIdx := 1
+        for idx, f in macroFiles {
+            if (f = currentSel) {
+                chosenIdx := idx
+                break
+            }
+        }
+        ddlMacros.Choose(chosenIdx)
+        ddlEditMacros.Choose(chosenIdx)
 
         if (!isRecording && !isPlaying)
             btnPlay.Enabled := true
@@ -546,14 +564,14 @@ EditSelectedMacro(*) {
     EnsureRequiredDirectories()
     selectedMacro := ddlMacros.Text
     if (selectedMacro == "" || selectedMacro == "(Sin macros guardadas)") {
-        MsgBox("Selecciona primero una macro valida para editar.", "QA POS Automation", "Icon!")
+        MsgBox("Selecciona primero una macro valida para editar.", "QA POS Automation", "Icon! 262144")
         return
     }
     fullPath := macroFolder . "\" . selectedMacro
     if FileExist(fullPath) {
         Run("notepad.exe `"" . fullPath . "`"")
     } else {
-        MsgBox("El archivo '" . fullPath . "' no existe.", "QA POS Automation", "Iconx")
+        MsgBox("El archivo '" . fullPath . "' no existe.", "QA POS Automation", "Iconx 262144")
     }
 }
 
@@ -589,7 +607,7 @@ LoadMacroIntoEditor(*) {
 
     fullPath := macroFolder . "\" . selected
     if (!FileExist(fullPath)) {
-        MsgBox("El archivo '" . fullPath . "' no existe.", "Editor de Pasos", "Iconx")
+        MsgBox("El archivo '" . fullPath . "' no existe.", "Editor de Pasos", "Iconx 262144")
         return
     }
 
@@ -655,13 +673,13 @@ ApplyStepEdit(*) {
     global lvSteps, editorSteps, ddlStepType, edtStepVal
     row := lvSteps.GetNext()
     if (row == 0) {
-        MsgBox("Selecciona primero un paso de la lista para actualizar.", "Editor de Pasos", "Icon!")
+        MsgBox("Selecciona primero un paso de la lista para actualizar.", "Editor de Pasos", "Icon! 262144")
         return
     }
 
     newVal := Trim(edtStepVal.Text)
     if (newVal == "") {
-        MsgBox("El valor no puede estar vacio.", "Editor de Pasos", "Icon!")
+        MsgBox("El valor no puede estar vacio.", "Editor de Pasos", "Icon! 262144")
         return
     }
 
@@ -711,7 +729,7 @@ DeleteStep(*) {
     global lvSteps, editorSteps
     row := lvSteps.GetNext()
     if (row == 0) {
-        MsgBox("Selecciona un paso para eliminar.", "Editor de Pasos", "Icon!")
+        MsgBox("Selecciona un paso para eliminar.", "Editor de Pasos", "Icon! 262144")
         return
     }
 
@@ -725,7 +743,7 @@ DuplicateStep(*) {
     global lvSteps, editorSteps
     row := lvSteps.GetNext()
     if (row == 0) {
-        MsgBox("Selecciona un paso para duplicar.", "Editor de Pasos", "Icon!")
+        MsgBox("Selecciona un paso para duplicar.", "Editor de Pasos", "Icon! 262144")
         return
     }
 
@@ -739,7 +757,7 @@ InsertStep(*) {
     global lvSteps, editorSteps, ddlStepType, edtStepVal
     val := Trim(edtStepVal.Text)
     if (val == "") {
-        MsgBox("Ingresa un valor para el nuevo paso.", "Editor de Pasos", "Icon!")
+        MsgBox("Ingresa un valor para el nuevo paso.", "Editor de Pasos", "Icon! 262144")
         return
     }
 
@@ -780,13 +798,31 @@ RefreshStepListView(selectIndex := 1) {
 }
 
 SaveMacroChanges(*) {
-    global editorSteps, currentEditingMacro, macroFolder
+    global editorSteps, currentEditingMacro, macroFolder, ddlMacros, lvSteps, ddlStepType, edtStepVal
     if (currentEditingMacro == "") {
-        MsgBox("No hay ninguna macro cargada en el editor.", "Editor de Pasos", "Icon!")
+        MsgBox("No hay ninguna macro cargada en el editor.", "Editor de Pasos", "Icon! 262144")
         return
     }
+
+    ; Auto-aplicar cualquier edicion pendiente en el campo de texto del paso seleccionado
+    row := lvSteps.GetNext()
+    if (row > 0 && row <= editorSteps.Length && Trim(edtStepVal.Text) != "") {
+        newVal := Trim(edtStepVal.Text)
+        newType := ddlStepType.Text
+        if (newType == "Tecla Especial" && !RegExMatch(newVal, "^\{.+\}$"))
+            newVal := "{" . newVal . "}"
+        else if (newType == "Pausa (ms)") {
+            newVal := RegExReplace(newVal, "[^\d]", "")
+            if (newVal == "")
+                newVal := "100"
+        }
+        editorSteps[row].type := newType
+        editorSteps[row].val := newVal
+        lvSteps.Modify(row, "", Format("{:02}", row), newType, newVal)
+    }
+
     if (editorSteps.Length == 0) {
-        MsgBox("La macro no contiene ningun paso.", "Editor de Pasos", "Icon!")
+        MsgBox("La macro no contiene ningun paso.", "Editor de Pasos", "Icon! 262144")
         return
     }
 
@@ -797,19 +833,36 @@ SaveMacroChanges(*) {
         if FileExist(fullPath)
             FileDelete(fullPath)
         FileAppend(fileContent, fullPath, "UTF-8")
-        RefreshMacroList()
+        RefreshMacroList(currentEditingMacro)
+        try ddlMacros.Text := currentEditingMacro
         UpdateStatus("Macro guardada con exito: " . currentEditingMacro)
-        MsgBox("¡Cambios guardados exitosamente!`n`nArchivo: " . fullPath . "`nPasos: " . editorSteps.Length,
-            "Editor de Pasos", "Iconi")
+        MsgBox("¡Cambios guardados exitosamente!`n`nArchivo: " . currentEditingMacro . "`nPasos: " . editorSteps.Length . "`n`nLa macro editada ya se encuentra seleccionada en la pestaña 'Automatizar'.",
+            "Editor de Pasos", "Iconi 262144")
     } catch Error as err {
-        MsgBox("Error al guardar la macro: " . err.Message, "Editor de Pasos", "Iconx")
+        MsgBox("Error al guardar la macro: " . err.Message, "Editor de Pasos", "Iconx 262144")
     }
 }
 
 SaveAsMacro(*) {
-    global editorSteps, currentEditingMacro, macroFolder, ddlMacros
+    global editorSteps, currentEditingMacro, macroFolder, ddlMacros, lvSteps, ddlStepType, edtStepVal
+    row := lvSteps.GetNext()
+    if (row > 0 && row <= editorSteps.Length && Trim(edtStepVal.Text) != "") {
+        newVal := Trim(edtStepVal.Text)
+        newType := ddlStepType.Text
+        if (newType == "Tecla Especial" && !RegExMatch(newVal, "^\{.+\}$"))
+            newVal := "{" . newVal . "}"
+        else if (newType == "Pausa (ms)") {
+            newVal := RegExReplace(newVal, "[^\d]", "")
+            if (newVal == "")
+                newVal := "100"
+        }
+        editorSteps[row].type := newType
+        editorSteps[row].val := newVal
+        lvSteps.Modify(row, "", Format("{:02}", row), newType, newVal)
+    }
+
     if (editorSteps.Length == 0) {
-        MsgBox("No hay pasos para guardar.", "Editor de Pasos", "Icon!")
+        MsgBox("No hay pasos para guardar.", "Editor de Pasos", "Icon! 262144")
         return
     }
 
@@ -833,13 +886,13 @@ SaveAsMacro(*) {
             FileDelete(fullPath)
         FileAppend(fileContent, fullPath, "UTF-8")
         currentEditingMacro := newName
-        RefreshMacroList()
+        RefreshMacroList(newName)
         try ddlMacros.Text := newName
         UpdateStatus("Nueva macro guardada: " . newName)
-        MsgBox("¡Nueva macro creada exitosamente!`n`nArchivo: " . fullPath . "`nPasos: " . editorSteps.Length,
-            "Editor de Pasos", "Iconi")
+        MsgBox("¡Nueva macro creada exitosamente!`n`nArchivo: " . newName . "`nPasos: " . editorSteps.Length . "`n`nYa se encuentra seleccionada en la pestaña 'Automatizar'.",
+            "Editor de Pasos", "Iconi 262144")
     } catch Error as err {
-        MsgBox("Error al guardar nueva macro: " . err.Message, "Editor de Pasos", "Iconx")
+        MsgBox("Error al guardar nueva macro: " . err.Message, "Editor de Pasos", "Iconx 262144")
     }
 }
 
@@ -871,23 +924,26 @@ StartAutomation(*) {
     global autoStartTime, autoCurrentCSV, speedMultiplier, progBar, txtProgress
     global btnPlay, btnPausePlay, btnRecord, radModeSingle, radModeBatch, edtReps, chkInfinite, edtLoopDelay
 
+    if (isPlaying)
+        return
+
     EnsureRequiredDirectories()
 
     if (isRecording) {
-        MsgBox("Debes guardar o cancelar la grabacion activa antes de iniciar la automatizacion.", "QA POS Automation", "Icon!")
+        MsgBox("Debes guardar o cancelar la grabacion activa antes de iniciar la automatizacion.", "QA POS Automation", "Icon! 262144")
         return
     }
 
     selectedMacro := ddlMacros.Text
     if (selectedMacro == "" || selectedMacro == "(Sin macros guardadas)") {
         MsgBox("No hay ninguna macro seleccionada.`nGraba una macro primero en la pestaña 'Grabar Macro'.",
-            "QA POS Automation", "Iconx")
+            "QA POS Automation", "Iconx 262144")
         return
     }
 
     fullMacroPath := macroFolder . "\" . selectedMacro
     if (!FileExist(fullMacroPath)) {
-        MsgBox("El archivo de macro '" . fullMacroPath . "' no existe.", "QA POS Automation", "Iconx")
+        MsgBox("El archivo de macro '" . fullMacroPath . "' no existe.", "QA POS Automation", "Iconx 262144")
         RefreshMacroList()
         return
     }
@@ -895,13 +951,15 @@ StartAutomation(*) {
     if (chkInfinite.Value == 1) {
         totalReps := 999999
     } else if (radModeBatch.Value == 1) {
-        numInput := Integer(edtReps.Text)
+        rawReps := RegExReplace(edtReps.Text, "[^\d]", "")
+        numInput := (rawReps != "") ? Integer(rawReps) : 1
         totalReps := (numInput > 0) ? numInput : 1
     } else {
         totalReps := 1
     }
 
-    loopDelay := Integer(edtLoopDelay.Text >= 0 ? edtLoopDelay.Text : 1000)
+    rawDelay := RegExReplace(edtLoopDelay.Text, "[^\d]", "")
+    loopDelay := (rawDelay != "") ? Integer(rawDelay) : 1000
     keyDelay := 25
 
     autoTotalCycles := totalReps
@@ -912,11 +970,12 @@ StartAutomation(*) {
     isPlaying := true
     isPausedPlay := false
     stopPlayback := false
+    cycleDurationSec := 0.0
 
     csvName := "Registro_Transacciones_" . FormatTime(, "yyyyMMdd_HHmmss") . "_" . RegExReplace(selectedMacro, "\.txt$", "") . ".csv"
     autoCurrentCSV := reportsFolder . "\" . csvName
     csvHeader := "Transaccion,Fecha_Inicio,Fecha_Fin,Duracion_Seg,Duracion_Ms,Estado,Macro`n"
-    FileAppend(csvHeader, autoCurrentCSV, "UTF-8")
+    try FileAppend(csvHeader, autoCurrentCSV, "UTF-8")
 
     btnPlay.Enabled := false
     btnPausePlay.Enabled := true
@@ -926,8 +985,8 @@ StartAutomation(*) {
 
     UpdateStatus("Conectando con terminal POS...")
     if (!EnsureTargetWindowActive()) {
-        ans := MsgBox("No se encontro la ventana objetivo ('" . edtTargetWin.Text . "').`n¿Deseas continuar de todas formas?",
-            "Aviso de Foco POS", "YesNo Icon?")
+        ans := MsgBox("No se pudo enfocar automaticamente la ventana ('" . edtTargetWin.Text . "').`n¿Deseas enviar las pulsaciones de todas formas?",
+            "Aviso de Foco POS", "YesNo Icon? 262144")
         if (ans != "Yes") {
             isPlaying := false
             ResetUI()
@@ -943,98 +1002,106 @@ StartAutomation(*) {
     else
         UpdateStatus("Automatizando lote de " . totalReps . " transacciones...")
 
-    SetTimer(UpdateLiveMetricsHUD, 400)
+    SetTimer(UpdateLiveMetricsHUD, 300)
 
-    fileLines := FileRead(fullMacroPath, "UTF-8")
+    try {
+        fileLines := FileRead(fullMacroPath, "UTF-8")
 
-    loop totalReps {
-        if (stopPlayback)
-            break
-
-        autoCurrentCycle := A_Index
-        cycleStartTick := A_TickCount
-        cycleStartTimeStr := FormatTime(, "yyyy-MM-dd HH:mm:ss")
-
-        while (isPausedPlay && !stopPlayback) {
-            Sleep(100)
-        }
-
-        if (stopPlayback)
-            break
-
-        EnsureTargetWindowActive()
-
-        loop parse, fileLines, "`n", "`r" {
+        loop totalReps {
             if (stopPlayback)
                 break
+
+            autoCurrentCycle := A_Index
+            cycleStartTick := A_TickCount
+            cycleStartTimeStr := FormatTime(, "yyyy-MM-dd HH:mm:ss")
 
             while (isPausedPlay && !stopPlayback) {
                 Sleep(100)
             }
 
-            line := Trim(A_LoopField)
-            if (line == "" || SubStr(line, 1, 1) == ";")
-                continue
+            if (stopPlayback)
+                break
 
-            if (SubStr(line, 1, 6) == "Sleep,") {
-                rawSleep := Integer(Trim(SubStr(line, 7)))
-                actualSleep := Integer(rawSleep * speedMultiplier)
-                InterruptibleSleep(actualSleep)
-            } else if (SubStr(line, 1, 5) == "Send,") {
-                cmd := Trim(SubStr(line, 6))
-                if (cmd != "") {
-                    SetKeyDelay(keyDelay, keyDelay)
-                    SendEvent(cmd)
-                    InterruptibleSleep(keyDelay)
+            EnsureTargetWindowActive()
+
+            loop parse, fileLines, "`n", "`r" {
+                if (stopPlayback)
+                    break
+
+                while (isPausedPlay && !stopPlayback) {
+                    Sleep(100)
+                }
+
+                line := Trim(A_LoopField)
+                if (line == "" || SubStr(line, 1, 1) == ";")
+                    continue
+
+                if (SubStr(line, 1, 6) == "Sleep,") {
+                    rawSleepStr := RegExReplace(SubStr(line, 7), "[^\d]", "")
+                    rawSleep := (rawSleepStr != "") ? Integer(rawSleepStr) : 50
+                    actualSleep := Integer(rawSleep * speedMultiplier)
+                    InterruptibleSleep(actualSleep)
+                } else if (SubStr(line, 1, 5) == "Send,") {
+                    cmd := Trim(SubStr(line, 6))
+                    if (cmd != "") {
+                        SetKeyDelay(keyDelay, keyDelay)
+                        SendEvent(cmd)
+                        InterruptibleSleep(keyDelay)
+                    }
                 }
             }
+
+            cycleEndTick := A_TickCount
+            cycleEndTimeStr := FormatTime(, "yyyy-MM-dd HH:mm:ss")
+            cycleDurationMs := cycleEndTick - cycleStartTick
+            cycleDurationSec := Round(cycleDurationMs / 1000, 2)
+
+            if (stopPlayback) {
+                autoFailCount++
+                logStatus := "INTERRUMPIDO"
+            } else {
+                autoSuccessCount++
+                logStatus := "COMPLETADO"
+            }
+
+            csvRow := autoCurrentCycle . "," . cycleStartTimeStr . "," . cycleEndTimeStr . ","
+                . cycleDurationSec . "," . cycleDurationMs . "," . logStatus . "," . selectedMacro . "`n"
+            try FileAppend(csvRow, autoCurrentCSV, "UTF-8")
+
+            if (!stopPlayback && autoCurrentCycle < totalReps) {
+                InterruptibleSleep(loopDelay)
+            }
         }
-
-        cycleEndTick := A_TickCount
-        cycleEndTimeStr := FormatTime(, "yyyy-MM-dd HH:mm:ss")
-        cycleDurationMs := cycleEndTick - cycleStartTick
-        cycleDurationSec := Round(cycleDurationMs / 1000, 2)
-
-        if (stopPlayback) {
-            autoFailCount++
-            logStatus := "INTERRUMPIDO"
-        } else {
-            autoSuccessCount++
-            logStatus := "COMPLETADO"
-        }
-
-        csvRow := autoCurrentCycle . "," . cycleStartTimeStr . "," . cycleEndTimeStr . ","
-            . cycleDurationSec . "," . cycleDurationMs . "," . logStatus . "," . selectedMacro . "`n"
-        try FileAppend(csvRow, autoCurrentCSV, "UTF-8")
-
-        if (!stopPlayback && autoCurrentCycle < totalReps) {
-            InterruptibleSleep(loopDelay)
-        }
+    } catch Error as err {
+        UpdateStatus("Error durante ejecucion: " . err.Message)
+        MsgBox("Error inesperado en la reproduccion de la macro:`n" . err.Message, "Error de Automatizacion", "Iconx 262144")
+    } finally {
+        ; Restablecer inmediatamente el estado interno y la botonera
+        isPlaying := false
+        isPausedPlay := false
+        SetTimer(UpdateLiveMetricsHUD, 0)
+        UpdateLiveMetricsHUD()
+        UpdateReportsTabSummary()
+        ResetUI()
     }
 
-    SetTimer(UpdateLiveMetricsHUD, 0)
-    isPlaying := false
-    isPausedPlay := false
-
-    UpdateLiveMetricsHUD()
-    UpdateReportsTabSummary()
-
+    ; Notificacion visual y sonora (el boton ya se encuentra reactivado)
     if (stopPlayback) {
         UpdateStatus("Automatizacion detenida por el usuario")
+        SoundBeep(500, 200)
         MsgBox("Ejecucion detenida en la transaccion " . autoCurrentCycle . " de " . totalReps . ".`n`nRegistro guardado en:`n" . autoCurrentCSV,
-            "QA POS Automation", "Icon!")
+            "QA POS Automation", "Icon! 262144")
     } else {
-        UpdateStatus("Transaccion finalizada con exito")
+        UpdateStatus("Automatizacion completada exitosamente")
+        SoundBeep(1000, 250)
         if (totalReps == 1) {
             MsgBox("Transaccion completada exitosamente en la terminal POS.`n`nMacro: " . selectedMacro . "`nDuracion: " . cycleDurationSec . "s",
-                "QA POS Automation", "Iconi")
+                "QA POS Automation", "Iconi 262144")
         } else {
-            MsgBox("Automatizacion completada exitosamente.`n`nTotal de transacciones: " . autoSuccessCount . "`nMacro: " . selectedMacro,
-                "QA POS Automation", "Iconi")
+            MsgBox("Automatizacion completada exitosamente.`n`nTotal de transacciones: " . autoSuccessCount . " de " . totalReps . "`nMacro: " . selectedMacro,
+                "QA POS Automation", "Iconi 262144")
         }
     }
-
-    ResetUI()
 }
 
 TogglePauseAutomation(*) {
@@ -1073,10 +1140,12 @@ EmergencyStop(*) {
     global stopPlayback, isPlaying, isRecording, isCountdownActive
     if (isPlaying) {
         stopPlayback := true
+        ResetUI()
         UpdateStatus("Deteniendo ejecucion de transacciones...")
     } else if (isRecording || isCountdownActive) {
         CancelRecording()
     } else {
+        ResetUI()
         UpdateStatus("Listo para automatizar transacciones en terminal POS")
     }
 }
@@ -1151,7 +1220,7 @@ OpenLastCSVReport(*) {
         if (latestFile != "")
             Run(latestFile)
         else
-            MsgBox("Aun no se han generado registros de transacciones.", "QA POS Automation", "Iconi")
+            MsgBox("Aun no se han generado registros de transacciones.", "QA POS Automation", "Iconi 262144")
     }
 }
 
