@@ -11,6 +11,8 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 SetWorkingDir(A_ScriptDir)
+SetTitleMatchMode(2)        ; Coincidencia de subcadena en cualquier parte del titulo
+SetTitleMatchMode("Slow")   ; Inspeccion exhaustiva para terminales POS
 
 ; ==============================================================================
 ; VARIABLES DE ESTADO GLOBAL
@@ -24,6 +26,8 @@ global isPausedRec := false
 global isPlaying := false
 global isPausedPlay := false
 global stopPlayback := false
+global isCountdownActive := false
+global recordingCountdown := 0
 global firstKeyRecorded := false
 global lastTick := 0
 global textBuffer := ""
@@ -42,7 +46,7 @@ global autoFailCount := 0
 global autoStartTime := 0
 global autoCycleStart := 0
 global autoCurrentCSV := ""
-global targetWinTitle := "POS"
+global targetWinTitle := "Xstore"
 global speedMultiplier := 1.0
 
 ; Estado del Editor de Pasos
@@ -338,6 +342,22 @@ mainGui.OnEvent("Close", (*) => ExitApp())
 RefreshMacroList()
 mainGui.Show("w450 h580")
 
+; Deteccion automatica de ventana POS o Xstore activa al arrancar
+try {
+    for cand in ["Xstore", "xstore", "Oracle Retail", "Point of Service", "POS"] {
+        if WinExist(cand) {
+            hw := WinExist(cand)
+            t := WinGetTitle(hw)
+            if (t != "" && hw != mainGui.Hwnd && !InStr(t, "QA POS Automation Macro") && !RegExMatch(t, "i)^(Program Manager|Default IME|MSCTFIME UI)$")) {
+                targetWinTitle := t
+                edtTargetWin.Text := targetWinTitle
+                UpdateStatus("Ventana POS detectada: " . SubStr(targetWinTitle, 1, 35))
+                break
+            }
+        }
+    }
+}
+
 ; Comprobacion no intrusiva de actualizaciones en segundo plano
 SetTimer(() => CheckForUpdates(false), -1500)
 
@@ -346,33 +366,106 @@ SetTimer(() => CheckForUpdates(false), -1500)
 ; ==============================================================================
 
 DetectTargetWindow(*) {
-    global targetWinTitle, edtTargetWin
-    MsgBox(
-        "Haz clic en 'Aceptar' y luego activa (haz clic en) la ventana de la terminal POS dentro de los proximos 4 segundos.",
-        "Vinculador de Ventana POS", "Iconi")
-    Sleep(4000)
-    activeTitle := WinGetTitle("A")
-    if (activeTitle != "" && activeTitle != mainGui.Title) {
-        targetWinTitle := activeTitle
-        edtTargetWin.Text := activeTitle
-        UpdateStatus("Ventana POS enlazada: " . SubStr(activeTitle, 1, 32))
-    } else {
-        MsgBox("No se detecto un cambio de ventana o seleccionaste esta misma aplicacion.", "QA POS Automation", "Icon!")
+    global targetWinTitle, edtTargetWin, mainGui
+
+    currentTitle := Trim(edtTargetWin.Text)
+    candidates := []
+    if (currentTitle != "" && currentTitle != "Xstore")
+        candidates.Push(currentTitle)
+    candidates.Push("Xstore", "xstore", "Oracle Retail", "Point of Service", "POS")
+
+    ; 1. Si la ventana de Xstore o POS ya esta abierta en el sistema, vincularla y activarla de inmediato
+    for cand in candidates {
+        if WinExist(cand) {
+            foundHwnd := WinExist(cand)
+            foundTitle := WinGetTitle(foundHwnd)
+            if (foundTitle != "" && foundHwnd != mainGui.Hwnd && !InStr(foundTitle, "QA POS Automation Macro") && !RegExMatch(foundTitle, "i)^(Program Manager|Default IME|MSCTFIME UI)$")) {
+                WinActivate(foundHwnd)
+                targetWinTitle := foundTitle
+                edtTargetWin.Text := foundTitle
+                SoundBeep(1000, 200)
+                UpdateStatus("Ventana POS vinculada: " . SubStr(foundTitle, 1, 35))
+                MsgBox("¡Ventana de Xstore POS vinculada exitosamente!`n`nTitulo detectado:`n" . foundTitle . "`n`nLa terminal ha sido ubicada y vinculada.",
+                    "Vinculador POS", "Iconi 262144")
+                return
+            }
+        }
     }
+
+    ; 2. Si no se detecto automaticamente o el usuario desea seleccionar manualmente otra ventana
+    WinSetTransparent(150, mainGui)
+    UpdateStatus("MODO VINCULAR: Haz clic en la ventana de Xstore / POS ahora...")
+
+    ToolTip("MODO VINCULACION ACTIVADO`n`nHaz clic en cualquier parte de la ventana de tu caja POS (Xstore)...`n(Presiona ESC para cancelar)", 12, 12)
+    SoundBeep(700, 150)
+
+    startTime := A_TickCount
+
+    CheckActiveWindowChange() {
+        if (GetKeyState("Escape", "P")) {
+            SetTimer(CheckActiveWindowChange, 0)
+            ToolTip()
+            WinSetTransparent("Off", mainGui)
+            UpdateStatus("Vinculacion cancelada por el usuario")
+            return
+        }
+
+        if (A_TickCount - startTime > 12000) {
+            SetTimer(CheckActiveWindowChange, 0)
+            ToolTip()
+            WinSetTransparent("Off", mainGui)
+            UpdateStatus("Tiempo agotado. Escribe el titulo en el campo.")
+            MsgBox("Tiempo de espera agotado.`n`nPuedes escribir directamente 'xstore' o el titulo de tu ventana en el campo de texto.",
+                "Vinculador POS", "Icon! 262144")
+            return
+        }
+
+        activeHwnd := WinActive("A")
+        if (activeHwnd && activeHwnd != mainGui.Hwnd) {
+            activeTitle := WinGetTitle(activeHwnd)
+            if (activeTitle != "" && !InStr(activeTitle, "QA POS Automation Macro") && !RegExMatch(activeTitle, "i)^(Program Manager|Default IME|MSCTFIME UI)$")) {
+                SetTimer(CheckActiveWindowChange, 0)
+                ToolTip()
+                WinSetTransparent("Off", mainGui)
+                targetWinTitle := activeTitle
+                edtTargetWin.Text := activeTitle
+                UpdateStatus("Ventana POS vinculada: " . SubStr(activeTitle, 1, 35))
+                SoundBeep(1000, 200)
+                MsgBox("¡Ventana vinculada exitosamente!`n`nTitulo capturado:`n" . activeTitle . "`n`nYa puedes grabar o ejecutar transacciones sobre ella.",
+                    "Vinculador POS", "Iconi 262144")
+            }
+        }
+    }
+
+    SetTimer(CheckActiveWindowChange, 100)
 }
 
 EnsureTargetWindowActive() {
     global targetWinTitle, edtTargetWin
     currentTitle := Trim(edtTargetWin.Text)
     if (currentTitle == "")
-        currentTitle := "POS"
+        currentTitle := "Xstore"
 
+    ; Coincidencia directa o por subcadena
     if WinExist(currentTitle) {
         if (!WinActive(currentTitle)) {
             WinActivate(currentTitle)
             WinWaitActive(currentTitle, , 3)
         }
         return WinActive(currentTitle)
+    }
+
+    ; Busqueda de respaldo por terminos clave de terminales POS
+    for candidate in [currentTitle, "xstore", "POS", "Oracle Retail", "Point of Service"] {
+        if WinExist(candidate) {
+            WinActivate(candidate)
+            WinWaitActive(candidate, , 2)
+            if WinActive(candidate) {
+                targetWinTitle := WinGetTitle(candidate)
+                edtTargetWin.Text := targetWinTitle
+                return true
+            }
+        }
     }
     return false
 }
@@ -977,11 +1070,11 @@ InterruptibleSleep(durationMs) {
 }
 
 EmergencyStop(*) {
-    global stopPlayback, isPlaying, isRecording
+    global stopPlayback, isPlaying, isRecording, isCountdownActive
     if (isPlaying) {
         stopPlayback := true
         UpdateStatus("Deteniendo ejecucion de transacciones...")
-    } else if (isRecording) {
+    } else if (isRecording || isCountdownActive) {
         CancelRecording()
     } else {
         UpdateStatus("Listo para automatizar transacciones en terminal POS")
@@ -993,7 +1086,7 @@ EmergencyStop(*) {
 <^p:: TogglePauseAutomation()
 #HotIf
 
-#HotIf (isPlaying || isRecording)
+#HotIf (isPlaying || isRecording || isCountdownActive)
 ^m:: EmergencyStop()
 <^m:: EmergencyStop()
 #HotIf
@@ -1067,20 +1160,16 @@ OpenLastCSVReport(*) {
 ; ==============================================================================
 
 StartRecording(*) {
-    global isRecording, isPausedRec, firstKeyRecorded, lastTick, macroBuffer, textBuffer, keyHook
-    global btnRecord, btnPauseRec, btnSaveRec, btnCancelRec, btnPlay, edtBufferPreview, edtMacroName
+    global isRecording, isPausedRec, isPlaying, isCountdownActive, recordingCountdown
+    global btnRecord, btnPauseRec, btnSaveRec, btnCancelRec, btnPlay, edtBufferPreview, edtMacroName, mainGui
 
     if (isPlaying) {
         MsgBox("No se puede grabar mientras se esta ejecutando una automatizacion.", "QA POS Automation", "Icon! 262144")
         return
     }
 
-    macroBuffer := []
-    textBuffer := ""
-    isRecording := true
-    isPausedRec := false
-    firstKeyRecorded := false
-    lastTick := 0
+    if (isRecording || isCountdownActive)
+        return
 
     currentName := Trim(edtMacroName.Text)
     if (currentName == "") {
@@ -1088,38 +1177,92 @@ StartRecording(*) {
     }
 
     try edtMacroName.Enabled := false
-    edtBufferPreview.Text := "; Grabando pulsaciones... Opera normalmente en la terminal POS.`r`n"
-
-    keyHook := InputHook("V L0")
-    keyHook.KeyOpt("{All}", "+N")
-    keyHook.OnKeyDown := OnKeyDownHandler
-    keyHook.OnChar := OnCharHandler
-    keyHook.Start()
-
-    UpdateStatus("GRABANDO EN DIRECTO... (Opera en terminal POS)")
     btnRecord.Enabled := false
-    btnPauseRec.Enabled := true
-    btnPauseRec.Text := "Pausar"
-    btnSaveRec.Enabled := true
+    btnPauseRec.Enabled := false
+    btnSaveRec.Enabled := false
     btnCancelRec.Enabled := true
     btnPlay.Enabled := false
+
+    ; 1. Activar fondo translucido Aero Glass nítido de inmediato
+    WinSetTransparent(150, mainGui)
+
+    ; 2. Activar la ventana de Xstore / POS si existe para ubicar al operador
+    EnsureTargetWindowActive()
+
+    ; 3. Iniciar temporizador regresivo de 3 segundos con banner flotante
+    isCountdownActive := true
+    recordingCountdown := 3
+    UpdateStatus("PREPARATE... Grabando en 3 segundos (Ubicate en Xstore)")
+    edtBufferPreview.Text := "; PREPARATE: Grabando en 3 segundos... Ubicate en la terminal POS.`r`n"
+    ToolTip("TEMPORIZADOR: Grabando en 3 segundos...`nUbicate en la ventana de Xstore", 16, 16)
+    SoundBeep(650, 150)
+
+    SetTimer(RecordingCountdownTick, 1000)
+}
+
+RecordingCountdownTick() {
+    global recordingCountdown, isCountdownActive, isRecording, isPausedRec, firstKeyRecorded, lastTick, macroBuffer, textBuffer, keyHook
+    global btnPauseRec, btnSaveRec, edtBufferPreview, mainGui
+
+    if (!isCountdownActive) {
+        SetTimer(RecordingCountdownTick, 0)
+        ToolTip()
+        return
+    }
+
+    recordingCountdown--
+
+    if (recordingCountdown > 0) {
+        UpdateStatus("PREPARATE... Grabando en " . recordingCountdown . " segundo" . (recordingCountdown > 1 ? "s" : "") . " (Ubicate en Xstore)")
+        edtBufferPreview.Text := "; PREPARATE: Grabando en " . recordingCountdown . " segundo" . (recordingCountdown > 1 ? "s" : "") . "... Ubicate en la terminal POS.`r`n"
+        ToolTip("TEMPORIZADOR: Grabando en " . recordingCountdown . " segundo" . (recordingCountdown > 1 ? "s" : "") . "...`nUbicate en la ventana de Xstore", 16, 16)
+        SoundBeep(650 + (3 - recordingCountdown) * 120, 150)
+    } else {
+        SetTimer(RecordingCountdownTick, 0)
+        ToolTip()
+        isCountdownActive := false
+
+        ; Iniciar grabacion de eventos
+        macroBuffer := []
+        textBuffer := ""
+        isRecording := true
+        isPausedRec := false
+        firstKeyRecorded := false
+        lastTick := 0
+
+        edtBufferPreview.Text := "; Grabando pulsaciones... Opera normalmente en la terminal POS.`r`n"
+        SoundBeep(1200, 250)
+
+        keyHook := InputHook("V L0")
+        keyHook.KeyOpt("{All}", "+N")
+        keyHook.OnKeyDown := OnKeyDownHandler
+        keyHook.OnChar := OnCharHandler
+        keyHook.Start()
+
+        UpdateStatus("GRABANDO EN DIRECTO (Fondo translucido activo)...")
+        btnPauseRec.Enabled := true
+        btnPauseRec.Text := "Pausar"
+        btnSaveRec.Enabled := true
+    }
 }
 
 TogglePauseRecording(*) {
-    global isPausedRec, lastTick, btnPauseRec, edtMacroName
+    global isPausedRec, lastTick, btnPauseRec, edtMacroName, mainGui
     if (!isRecording)
         return
 
     if (isPausedRec) {
         isPausedRec := false
         lastTick := A_TickCount
-        UpdateStatus("GRABANDO EN DIRECTO... (Opera en terminal POS)")
+        WinSetTransparent(150, mainGui)
+        UpdateStatus("GRABANDO EN DIRECTO (Fondo translucido activo)...")
         btnPauseRec.Text := "Pausar"
         try edtMacroName.Enabled := false
     } else {
         FlushTextBuffer()
         isPausedRec := true
         lastTick := 0
+        WinSetTransparent(220, mainGui)
         UpdateStatus("Grabacion en pausa")
         btnPauseRec.Text := "Reanudar"
         try edtMacroName.Enabled := true
@@ -1127,16 +1270,25 @@ TogglePauseRecording(*) {
 }
 
 SaveRecording(*) {
-    global isRecording, isPausedRec, macroBuffer, macroFolder, ddlMacros, ddlEditMacros, edtMacroName, mainTabs
+    global isRecording, isPausedRec, isCountdownActive, macroBuffer, macroFolder, ddlMacros, ddlEditMacros, edtMacroName, mainTabs, mainGui
 
-    if (!isRecording)
+    if (isCountdownActive) {
+        isCountdownActive := false
+        SetTimer(RecordingCountdownTick, 0)
+    }
+
+    if (!isRecording) {
+        WinSetTransparent("Off", mainGui)
+        ResetUI()
         return
+    }
 
     StopHook()
     FlushTextBuffer()
     isRecording := false
     isPausedRec := false
     try edtMacroName.Enabled := true
+    WinSetTransparent("Off", mainGui)
 
     if (macroBuffer.Length == 0) {
         UpdateStatus("No se registraron pulsaciones de teclas")
@@ -1187,9 +1339,11 @@ SaveRecording(*) {
 }
 
 CancelRecording(*) {
-    global isRecording, isPausedRec, macroBuffer, textBuffer, edtBufferPreview, edtMacroName
-    if (!isRecording)
-        return
+    global isRecording, isPausedRec, isCountdownActive, macroBuffer, textBuffer, edtBufferPreview, edtMacroName, mainGui
+    if (isCountdownActive) {
+        isCountdownActive := false
+        SetTimer(RecordingCountdownTick, 0)
+    }
 
     StopHook()
     isRecording := false
@@ -1199,6 +1353,7 @@ CancelRecording(*) {
     textBuffer := ""
     edtBufferPreview.Text := "; Grabacion cancelada."
     UpdateStatus("Grabacion cancelada")
+    WinSetTransparent("Off", mainGui)
     ResetUI()
 }
 
@@ -1329,8 +1484,16 @@ UpdateStatus(statusText) {
 }
 
 ResetUI() {
-    global isRecording, isPlaying, btnRecord, btnPauseRec, btnSaveRec, btnCancelRec
-    global btnPlay, btnPausePlay, edtMacroName
+    global isRecording, isPlaying, isCountdownActive, btnRecord, btnPauseRec, btnSaveRec, btnCancelRec
+    global btnPlay, btnPausePlay, edtMacroName, mainGui
+
+    if (isCountdownActive) {
+        isCountdownActive := false
+        SetTimer(RecordingCountdownTick, 0)
+    }
+
+    ToolTip()
+    WinSetTransparent("Off", mainGui)
 
     btnRecord.Enabled := true
     btnPauseRec.Enabled := false

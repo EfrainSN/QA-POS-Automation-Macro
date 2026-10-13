@@ -38,14 +38,23 @@ Principales capacidades tecnicas:
 2. Inicie la aplicacion con permisos de usuario estandar o administrador segun las politicas de la caja POS.
 3. La aplicacion inicializara automaticamente los directorios `Macros/` y `Reports/` si no existen.
 
-### Paso 2: Vinculacion de Foco
-1. En la pestana "Automatizar", presione el boton "Vincular".
-2. Haga clic en la ventana de la aplicacion POS activa dentro de los siguientes 4 segundos. El titulo quedara registrado para garantizar que el foco de entrada se active antes de cada despacho de teclas.
+### Paso 2: Vinculacion Inteligente de Foco
+1. Al arrancar la aplicacion, el sistema busca automaticamente ventanas activas que coincidan con terminales POS ("Xstore", "POS", "Oracle Retail", "Point of Service") y las pre-vincula en el campo de texto.
+2. Al presionar el boton "Vincular":
+   - Si la terminal POS ya esta abierta en el sistema, se vincula y enfoca de inmediato con confirmacion sonora.
+   - Si no se detecta automaticamente, la ventana pasa a modo translucido y muestra un aviso flotante. Haga clic sobre cualquier parte de la ventana de su caja POS para vincularla (presione Escape si desea cancelar).
 
-### Paso 3: Ejecucion
+### Paso 3: Ejecucion de Transacciones
 1. Seleccione la macro deseada del menu desplegable.
 2. Seleccione el modo de ejecucion (1 Transaccion o Lote).
 3. Presione "EJECUTAR TRANSACCION".
+
+### Paso 4: Grabacion de Nuevas Macros con Temporizador y Fondo Translucido
+1. Ingrese a la pestana "Grabar Macro", asigne un nombre a la transaccion y presione "Iniciar Grabacion".
+2. **Fondo Translucido:** La interfaz adopta instantaneamente un fondo de cristal translucido Aero Glass para permitirle ver la pantalla del POS que se encuentra debajo.
+3. **Temporizador de 3 Segundos:** Se activa una cuenta regresiva de 3 segundos (3... 2... 1...) acompanada de avisos sonoros progresivos y un aviso flotante en pantalla, otorgando el tiempo exacto para ubicarse en la caja POS.
+4. Al culminar los 3 segundos, suena un tono agudo confirmatorio y el sistema comienza a registrar todas las pulsaciones de teclado y pausas en tiempo real mientras el fondo permanece translucido.
+5. Presione "Guardar en Biblioteca" para persistir la macro o "Cancelar" para descartarla, restaurando de inmediato la opacidad normal de la ventana.
 
 ---
 

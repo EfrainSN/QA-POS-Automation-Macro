@@ -13,32 +13,35 @@ Suite portable de automatizacion de transacciones para terminales de punto de ve
 
 QA POS Automation Macro es un motor de automatizacion disenado especificamente para entornos de cajas de venta minorista y terminales transaccionales (POS). A diferencia de las soluciones basadas en control remoto, streaming de video o reconocimiento optico, la aplicacion se ejecuta de forma nativa dentro de la sesion del sistema operativo del terminal, eliminando retardos de red y garantizando una dispersion temporal deterministica.
 
-### 1.1 Subsistema de Captura (Non-Intrusive Keyboard Hook)
-
+### 1.1 Subsistema de Captura y Temporizador de Grabacion
+ 
 La captura de secuencias se implementa mediante la API `InputHook` de bajo nivel de Windows con parametros `V L0` (Visible, Longitud Ilimitada):
+- **Temporizador Regresivo de 3 Segundos:** Al iniciar la grabacion, el sistema activa un conteo regresivo de 3 segundos con avisos sonoros ascendentes y un banner flotante en pantalla, otorgando el tiempo necesario para posicionarse en la terminal POS antes de capturar eventos.
+- **Modo Translucido Aero Glass:** Durante la grabacion, la suite reduce su opacidad al 58% (`WinSetTransparent(150)`), permitiendo al operador observar la aplicacion POS debajo de la ventana. Al finalizar o cancelar, la opacidad nativa se restablece al 100%.
 - **Modo Pass-Through:** No intercepta ni bloquea las pulsaciones dirigidas al proceso de la aplicacion POS durante la grabacion.
 - **Normalizacion de Codigos Virtuales:** Traduce codigos de teclas fisicas (`VK_RETURN`, `VK_ESCAPE`, `VK_TAB`, `VK_BACK`, `VK_SPACE`, teclas de navegacion y teclas de funcion `VK_F1` a `VK_F12`) en secuencias semanticas formalizadas `{Key}` compatibles con el sintetizador de eventos.
 - **Calculo Dinamico de Deltas:** Mide la diferencia en milisegundos (`A_TickCount`) entre pulsaciones sucesivas para generar sentencias `Sleep, <delta>` que reproducen fielmente los tiempos de respuesta requeridos por las bases de datos locales y servicios fiscales del POS.
-
+ 
 ### 1.2 Subsistema de Reproduccion y Despacho de Eventos
-
+ 
 El motor de reproduccion analiza secuencialmente el archivo de macro interpretando dos directivas primarias:
 - `Sleep, <ms>`: Aplica una espera fraccionada mediante un bucle de retardo divisible de 25 ms, permitiendo responder inmediatamente a peticiones de pausa o interrupcion de emergencia.
 - `Send, <payload>`: Despacha caracteres y codigos virtuales mediante `SendEvent` con una configuracion fija de `SetKeyDelay(25, 25)` (25 ms de retardo entre pulsaciones y 25 ms de duracion de pulsacion), parametro calibrado para evitar omisiones de caracteres en hardware de teclado fiscal o escaneres emulados.
-
-### 1.3 Gestion de Foco y Activacion de Ventana
-
-Antes de iniciar cada transaccion de la macro:
-1. El motor verifica la existencia de la ventana del POS mediante `WinExist()`.
-2. Si la ventana no tiene el foco activo en primer plano, se invoca `WinActivate()` y se sincroniza mediante `WinWaitActive()` con un tiempo limite de 3 segundos.
-3. Se garantiza la aplicacion del foco en cada ciclo repetitivo, previniendo la inyeccion de teclas en segundo plano o en aplicaciones no deseadas.
-
+ 
+### 1.3 Gestion de Foco y Vinculacion Inteligente de Ventana
+ 
+El sistema gestiona la sincronizacion con la terminal POS mediante inspeccion exhaustiva de ventanas Win32 (`SetTitleMatchMode(2)` y `SetTitleMatchMode("Slow")`):
+1. **Auto-Deteccion en Inicio y Vinculacion Rapida:** Al arrancar o pulsar "Vincular", el sistema busca procesos abiertos que contengan "Xstore", "POS", "Oracle Retail" o "Point of Service", vinculando y activando la terminal de inmediato.
+2. **Modo Interactivo Asistido:** Si la terminal utiliza un titulo no estandar, el sistema activa una guia flotante y modo translucido para capturar la ventana exacta al hacer clic sobre ella (cancelable mediante la tecla Escape).
+3. **Mantenimiento del Foco en Reproduccion:** Antes de cada transaccion, el motor verifica la existencia de la ventana mediante `WinExist()`, invoca `WinActivate()` y valida la sincronizacion con `WinWaitActive()`, evitando la inyeccion de teclas fuera de la caja registradora.
+ 
 ---
-
+ 
 ## 2. Interfaz de Usuario y Estilo Windows Vista Aero Glass
-
+ 
 La aplicacion implementa una interfaz grafica basada en los principios de diseno de Windows Vista Aero:
 - **Paleta de Color:** Fondo de ventana en azul hielo escarchado (`#D9EBF7`), panel superior de encabezado en zafiro profundo (`#123859`) y acentos de borde en cian luminiscente (`#5AD1FF`).
+- **Fondo Translucido Dinamico:** La ventana conmuta de forma transparente entre solida y cristal translucido durante la vinculacion y el proceso de grabacion de secuencias.
 - **Controles Touch-Friendly:** Botones de dimensiones extendidas (minimo 40 px de altura) con espaciado amplio, aptos para ser operados con los dedos en pantallas tactiles industriales de punto de venta.
 - **Telemetria de Estado en Tiempo Real:** Barra de progreso porcentual, cronometro acumulado de ejecucion, contador de transacciones procesadas y tasa de exito.
 
