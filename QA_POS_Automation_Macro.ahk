@@ -117,10 +117,10 @@ btnDetectWin := mainGui.Add("Button", "x302 y115 w102 h26", "Vincular")
 
 ; 2. Selección de Macro / Transacción
 mainGui.Add("GroupBox", "x24 y170 w392 h76", "2. Transaccion a Ejecutar")
-mainGui.Add("Text", "x36 y193 w115 h20 c153858", "Macro Guardada:")
-ddlMacros := mainGui.Add("DropDownList", "x152 y190 w176 Choose1", ["(Sin macros)"])
-btnRefresh := mainGui.Add("Button", "x334 y189 w34 h26", "Recargar")
-btnOpenFolderMacro := mainGui.Add("Button", "x370 y189 w34 h26", "Carpeta")
+mainGui.Add("Text", "x36 y193 w55 h20 c153858", "Macro:")
+ddlMacros := mainGui.Add("DropDownList", "x95 y190 w168 Choose1", ["(Sin macros)"])
+btnRefresh := mainGui.Add("Button", "x268 y189 w70 h26", "Recargar")
+btnOpenFolderMacro := mainGui.Add("Button", "x342 y189 w64 h26", "Carpeta")
 mainGui.Add("Text", "x36 y220 w368 h18 c416A8C", "Selecciona la secuencia registrada para ejecutar en la terminal POS.")
 
 ; 3. Modo de Ejecución de Transacciones
