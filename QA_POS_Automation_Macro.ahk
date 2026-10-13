@@ -1,11 +1,11 @@
 ; ==============================================================================
 ; PROJECT: QA POS Automation Macro
-; VERSION: 2.3.0 (Windows Vista Aero Glass Edition)
+; VERSION: 2.4.0 (Windows Vista Aero Glass Edition)
 ; LANGUAGE: AutoHotkey v2.0+
 ; TARGET: Windows 10/11 / Windows POSReady / Windows Server (Terminales POS)
 ; PURPOSE: Automatización de alta precisión para transacciones en cajas POS.
-;          Diseñada para ejecutar transacciones, cobros y flujos con macros,
-;          con interfaz fluida, estética Windows Vista Aero Glass y cero latencia.
+;          Incluye motor de ejecución, grabador no intrusivo y editor visual
+;          interactivo de pasos para reordenar, sustituir y modificar SKUs.
 ; ==============================================================================
 
 #Requires AutoHotkey v2.0
@@ -40,6 +40,10 @@ global autoCycleStart := 0
 global autoCurrentCSV := ""
 global targetWinTitle := "POS"
 global speedMultiplier := 1.0
+
+; Estado del Editor de Pasos
+global editorSteps := []
+global currentEditingMacro := ""
 
 ; Mapeo de teclas de navegación y función {Key} para teclado de caja POS
 global specialKeys := Map(
@@ -78,7 +82,6 @@ EnsureRequiredDirectories() {
         }
     }
 
-    ; Si existe macro de ejemplo en la raíz, copiarla a Macros si está vacía
     if (FileExist(A_ScriptDir . "\Macro_POS_Local.txt") && !FileExist(macroFolder . "\Macro_POS_Local.txt")) {
         try FileCopy(A_ScriptDir . "\Macro_POS_Local.txt", macroFolder . "\Macro_POS_Local.txt", 0)
     }
@@ -91,18 +94,18 @@ EnsureRequiredDirectories()
 ; ==============================================================================
 ; INTERFAZ DE USUARIO: WINDOWS VISTA AERO GLASS EDITION
 ; ==============================================================================
-mainGui := Gui("+AlwaysOnTop -MaximizeBox", "QA POS Automation Macro v2.3")
-mainGui.BackColor := "D9EBF7" ; Tono azul hielo cristalino característico de Windows Vista Aero
+mainGui := Gui("+AlwaysOnTop -MaximizeBox", "QA POS Automation Macro v2.4")
+mainGui.BackColor := "D9EBF7" ; Tono azul hielo cristalino tipo Windows Vista Aero
 mainGui.SetFont("s9", "Segoe UI")
 
 ; --- ENCABEZADO AERO GLASS HEADER ---
-hdrBg := mainGui.Add("Text", "x12 y10 w416 h48 +Border Background123859", "")
-txtBrand := mainGui.Add("Text", "x24 y14 w392 h20 BackgroundTrans c5AD1FF", "QA POS AUTOMATION MACRO • AERO EDITION")
+hdrBg := mainGui.Add("Text", "x12 y10 w426 h48 +Border Background123859", "")
+txtBrand := mainGui.Add("Text", "x24 y14 w402 h20 BackgroundTrans c5AD1FF", "QA POS AUTOMATION MACRO • AERO EDITION")
 txtBrand.SetFont("s10 Bold", "Segoe UI")
-txtStatus := mainGui.Add("Text", "x24 y34 w392 h18 BackgroundTrans cE2F3FF", "Listo para automatizar transacciones en caja POS")
+txtStatus := mainGui.Add("Text", "x24 y34 w402 h18 BackgroundTrans cE2F3FF", "Listo para automatizar transacciones en caja POS")
 
 ; --- PESTAÑAS PRINCIPALES ---
-mainTabs := mainGui.Add("Tab3", "x12 y65 w416 h472", ["Automatizar", "Grabar Macro", "Biblioteca"])
+mainTabs := mainGui.Add("Tab3", "x12 y65 w426 h482", ["Automatizar", "Grabar Macro", "Editor de Pasos", "Biblioteca"])
 
 ; ------------------------------------------------------------------------------
 ; PESTAÑA 1: AUTOMATIZAR TRANSACCIONES
@@ -110,21 +113,21 @@ mainTabs := mainGui.Add("Tab3", "x12 y65 w416 h472", ["Automatizar", "Grabar Mac
 mainTabs.UseTab(1)
 
 ; 1. Vinculación con Ventana POS
-mainGui.Add("GroupBox", "x24 y96 w392 h68", "1. Ventana de la Caja POS")
+mainGui.Add("GroupBox", "x24 y96 w402 h68", "1. Ventana de la Caja POS")
 mainGui.Add("Text", "x36 y119 w85 h20 c153858", "Ventana POS:")
-edtTargetWin := mainGui.Add("Edit", "x125 y116 w170 h24 BackgroundFFFFFF", targetWinTitle)
-btnDetectWin := mainGui.Add("Button", "x302 y115 w102 h26", "Vincular")
+edtTargetWin := mainGui.Add("Edit", "x125 y116 w175 h24 BackgroundFFFFFF", targetWinTitle)
+btnDetectWin := mainGui.Add("Button", "x306 y115 w106 h26", "Vincular")
 
 ; 2. Selección de Macro / Transacción
-mainGui.Add("GroupBox", "x24 y170 w392 h76", "2. Transaccion a Ejecutar")
+mainGui.Add("GroupBox", "x24 y170 w402 h76", "2. Transaccion a Ejecutar")
 mainGui.Add("Text", "x36 y193 w55 h20 c153858", "Macro:")
-ddlMacros := mainGui.Add("DropDownList", "x95 y190 w168 Choose1", ["(Sin macros)"])
-btnRefresh := mainGui.Add("Button", "x268 y189 w70 h26", "Recargar")
-btnOpenFolderMacro := mainGui.Add("Button", "x342 y189 w64 h26", "Carpeta")
-mainGui.Add("Text", "x36 y220 w368 h18 c416A8C", "Selecciona la secuencia registrada para ejecutar en la terminal POS.")
+ddlMacros := mainGui.Add("DropDownList", "x95 y190 w175 Choose1", ["(Sin macros)"])
+btnRefresh := mainGui.Add("Button", "x276 y189 w70 h26", "Recargar")
+btnOpenFolderMacro := mainGui.Add("Button", "x350 y189 w64 h26", "Carpeta")
+mainGui.Add("Text", "x36 y220 w378 h18 c416A8C", "Selecciona la secuencia registrada para ejecutar en la terminal POS.")
 
 ; 3. Modo de Ejecución de Transacciones
-mainGui.Add("GroupBox", "x24 y252 w392 h118", "3. Modo de Automatizacion")
+mainGui.Add("GroupBox", "x24 y252 w402 h118", "3. Modo de Automatizacion")
 mainGui.Add("Text", "x36 y274 w95 h20 c153858", "Ejecutar:")
 radModeSingle := mainGui.Add("Radio", "x135 y273 w110 h20 Checked", "1 Transaccion")
 radModeBatch := mainGui.Add("Radio", "x250 y273 w65 h20", "Lote:")
@@ -144,70 +147,105 @@ mainGui.Add("Text", "x274 y330 w130 h20 c416A8C", "Pausa: 1.0s / txn")
 edtLoopDelay := mainGui.Add("Edit", "x0 y0 w0 h0 Hidden", "1000")
 
 ; 4. Monitor de Progreso Aero Glass
-mainGui.Add("GroupBox", "x24 y376 w392 h84", "Estado de la Automatizacion")
-progBar := mainGui.Add("Progress", "x36 y396 w368 h16 Range0-100 c00A2ED BackgroundC8E3F5", 0)
-txtProgress := mainGui.Add("Text", "x36 y416 w368 h18 Center c153858", "Listo para iniciar. Esperando orden")
+mainGui.Add("GroupBox", "x24 y376 w402 h84", "Estado de la Automatizacion")
+progBar := mainGui.Add("Progress", "x36 y396 w378 h16 Range0-100 c00A2ED BackgroundC8E3F5", 0)
+txtProgress := mainGui.Add("Text", "x36 y416 w378 h18 Center c153858", "Listo para iniciar. Esperando orden")
 txtProgress.SetFont("Bold")
 
 txtMetricsA := mainGui.Add("Text", "x36 y436 w180 h18 c153858", "Tiempo: 00:00:00")
-txtMetricsC := mainGui.Add("Text", "x224 y436 w180 h18 Right c0E7D42", "Completadas: 0")
+txtMetricsC := mainGui.Add("Text", "x224 y436 w188 h18 Right c0E7D42", "Completadas: 0")
 
-; Botonera Principal de Acción (Touch-Friendly)
-btnPlay := mainGui.Add("Button", "x24 y466 w140 h45 Default", "EJECUTAR`nTRANSACCION")
-btnPausePlay := mainGui.Add("Button", "x170 y466 w120 h45 Disabled", "PAUSAR`n(Ctrl+P)")
-btnStop := mainGui.Add("Button", "x296 y466 w120 h45", "DETENER`n(Ctrl+M)")
+; Botonera Principal de Acción
+btnPlay := mainGui.Add("Button", "x24 y468 w144 h44 Default", "EJECUTAR`nTRANSACCION")
+btnPausePlay := mainGui.Add("Button", "x174 y468 w124 h44 Disabled", "PAUSAR`n(Ctrl+P)")
+btnStop := mainGui.Add("Button", "x304 y468 w122 h44", "DETENER`n(Ctrl+M)")
 
 ; ------------------------------------------------------------------------------
 ; PESTAÑA 2: GRABAR NUEVA MACRO
 ; ------------------------------------------------------------------------------
 mainTabs.UseTab(2)
 
-mainGui.Add("GroupBox", "x24 y96 w392 h170", "Nueva Secuencia de Transaccion")
-mainGui.Add("Text", "x36 y118 w368 h28 c416A8C",
-    "Asigna un nombre descriptivo a tu macro, presiona Grabar y realiza la operacion en el POS. Las teclas y pausas quedaran registradas para reproducirse."
+mainGui.Add("GroupBox", "x24 y96 w402 h170", "Nueva Secuencia de Transaccion")
+mainGui.Add("Text", "x36 y118 w378 h28 c416A8C",
+    "Asigna un nombre a tu macro, presiona Grabar y opera en la caja POS. Las pulsaciones y pausas quedaran registradas."
 )
 mainGui.Add("Text", "x36 y153 w110 h20 c153858", "Nombre de Macro:")
-edtMacroName := mainGui.Add("Edit", "x150 y150 w242 h24 BackgroundFFFFFF", "Transaccion_" . FormatTime(, "yyyyMMdd_HHmmss"))
+edtMacroName := mainGui.Add("Edit", "x150 y150 w252 h24 BackgroundFFFFFF", "Transaccion_" . FormatTime(, "yyyyMMdd_HHmmss"))
 
-btnRecord := mainGui.Add("Button", "x36 y182 w170 h38", "Iniciar Grabacion")
-btnPauseRec := mainGui.Add("Button", "x222 y182 w170 h38 Disabled", "Pausar")
+btnRecord := mainGui.Add("Button", "x36 y182 w175 h38", "Iniciar Grabacion")
+btnPauseRec := mainGui.Add("Button", "x227 y182 w175 h38 Disabled", "Pausar")
 
-btnSaveRec := mainGui.Add("Button", "x36 y224 w170 h36 Disabled", "Guardar en Biblioteca")
-btnCancelRec := mainGui.Add("Button", "x222 y224 w170 h36 Disabled", "Cancelar")
+btnSaveRec := mainGui.Add("Button", "x36 y224 w175 h36 Disabled", "Guardar en Biblioteca")
+btnCancelRec := mainGui.Add("Button", "x227 y224 w175 h36 Disabled", "Cancelar")
 
-mainGui.Add("GroupBox", "x24 y274 w392 h238", "Visor de Secuencia Capturada (En Vivo)")
-edtBufferPreview := mainGui.Add("Edit", "x36 y297 w368 h205 ReadOnly BackgroundF8FBFE",
+mainGui.Add("GroupBox", "x24 y274 w402 h238", "Visor de Secuencia Capturada (En Vivo)")
+edtBufferPreview := mainGui.Add("Edit", "x36 y297 w378 h205 ReadOnly BackgroundF8FBFE",
     "; Las pulsaciones y pausas de la terminal POS apareceran aqui...`r`n")
 
 ; ------------------------------------------------------------------------------
-; PESTAÑA 3: BIBLIOTECA Y REGISTRO
+; PESTAÑA 3: EDITOR DE PASOS (MODIFICAR, REORDENAR Y SUSTITUIR SKUS)
 ; ------------------------------------------------------------------------------
 mainTabs.UseTab(3)
 
-mainGui.Add("GroupBox", "x24 y96 w392 h165", "Resumen de la Ultima Automatizacion")
-txtRepInfo1 := mainGui.Add("Text", "x36 y120 w368 h20 c153858", "Registro CSV: (Ninguno)")
-txtRepInfo2 := mainGui.Add("Text", "x36 y145 w368 h20 c153858", "Total de Transacciones: 0")
-txtRepInfo3 := mainGui.Add("Text", "x36 y170 w368 h20 c153858", "Duracion Total: 0s")
-txtRepInfo4 := mainGui.Add("Text", "x36 y195 w368 h20 c153858", "Promedio por Transaccion: 0.0s")
-txtRepInfo5 := mainGui.Add("Text", "x36 y220 w368 h20 c0E7D42", "Tasa de Exito: 100%")
+; Selector de Macro a Cargar
+mainGui.Add("Text", "x24 y98 w95 h20 c153858", "Macro a Editar:")
+ddlEditMacros := mainGui.Add("DropDownList", "x122 y94 w185 Choose1", ["(Sin macros)"])
+btnLoadMacro := mainGui.Add("Button", "x314 y93 w112 h26", "Cargar Macro")
 
-mainGui.Add("GroupBox", "x24 y270 w392 h172", "Gestion de Macros y Auditoria")
-btnEditMacro := mainGui.Add("Button", "x36 y295 w175 h40", "Editar Macro`nen Bloc de Notas")
-btnOpenMacros := mainGui.Add("Button", "x219 y295 w175 h40", "Carpeta de`nMacros (.txt)")
+; Lista Interactiva de Pasos
+lvSteps := mainGui.Add("ListView", "x24 y125 w402 h165 Grid -Multi BackgroundFFFFFF", ["#", "Tipo", "Instruccion / Valor"])
+lvSteps.ModifyCol(1, 40)
+lvSteps.ModifyCol(2, 105)
+lvSteps.ModifyCol(3, 235)
 
-btnViewLastCSV := mainGui.Add("Button", "x36 y345 w175 h40", "Ver Ultimo`nRegistro CSV")
-btnOpenReports := mainGui.Add("Button", "x219 y345 w175 h40", "Carpeta de`nReportes CSV")
+; Barra de Acciones de Reordenamiento
+btnStepUp := mainGui.Add("Button", "x24 y295 w94 h27", "▲ Subir")
+btnStepDown := mainGui.Add("Button", "x126 y295 w94 h27", "▼ Bajar")
+btnStepDup := mainGui.Add("Button", "x228 y295 w94 h27", "Duplicar")
+btnStepDel := mainGui.Add("Button", "x330 y295 w96 h27", "Eliminar")
 
-mainGui.Add("Text", "x36 y398 w368 h35 c416A8C",
-    "Puedes abrir cualquier archivo de macro con el Bloc de Notas para ajustar manualmente teclas, codigos o pausas segun tu terminal POS."
-)
+; Tarjeta de Modificación Inmediata de SKU / Valor
+mainGui.Add("GroupBox", "x24 y328 w402 h112", "Modificar Paso Seleccionado")
+mainGui.Add("Text", "x36 y350 w40 h20 c153858", "Tipo:")
+ddlStepType := mainGui.Add("DropDownList", "x78 y347 w125 Choose1", ["Texto / SKU", "Tecla Especial", "Pausa (ms)"])
+mainGui.Add("Text", "x212 y350 w40 h20 c153858", "Valor:")
+edtStepVal := mainGui.Add("Edit", "x254 y347 w160 h23 BackgroundFFFFFF", "")
+
+btnApplyStep := mainGui.Add("Button", "x36 y378 w175 h28", "Actualizar Paso")
+btnInsertStep := mainGui.Add("Button", "x224 y378 w188 h28", "Insertar Nuevo Paso")
+mainGui.Add("Text", "x36 y412 w378 h18 c416A8C", "Selecciona un paso de la lista para cambiar su SKU, tecla o pausa.")
+
+; Botonera de Guardado del Editor
+btnSaveMacroFile := mainGui.Add("Button", "x24 y448 w196 h42", "GUARDAR CAMBIOS`n(Sobrescribir)")
+btnSaveAsMacroFile := mainGui.Add("Button", "x230 y448 w196 h42", "GUARDAR COMO...`n(Nueva Variante)")
+
+; ------------------------------------------------------------------------------
+; PESTAÑA 4: BIBLIOTECA Y REGISTRO
+; ------------------------------------------------------------------------------
+mainTabs.UseTab(4)
+
+mainGui.Add("GroupBox", "x24 y96 w402 h165", "Resumen de la Ultima Automatizacion")
+txtRepInfo1 := mainGui.Add("Text", "x36 y120 w378 h20 c153858", "Registro CSV: (Ninguno)")
+txtRepInfo2 := mainGui.Add("Text", "x36 y145 w378 h20 c153858", "Total de Transacciones: 0")
+txtRepInfo3 := mainGui.Add("Text", "x36 y170 w378 h20 c153858", "Duracion Total: 0s")
+txtRepInfo4 := mainGui.Add("Text", "x36 y195 w378 h20 c153858", "Promedio por Transaccion: 0.0s")
+txtRepInfo5 := mainGui.Add("Text", "x36 y220 w378 h20 c0E7D42", "Tasa de Exito: 100%")
+
+mainGui.Add("GroupBox", "x24 y270 w402 h172", "Gestion de Macros y Auditoria")
+btnOpenInEditor := mainGui.Add("Button", "x36 y295 w175 h40", "Editar en`nEditor de Pasos")
+btnOpenNotepad := mainGui.Add("Button", "x227 y295 w175 h40", "Abrir en`nBloc de Notas")
+
+btnOpenMacros := mainGui.Add("Button", "x36 y345 w175 h40", "Carpeta de`nMacros (.txt)")
+btnViewLastCSV := mainGui.Add("Button", "x227 y345 w175 h40", "Ver Ultimo`nRegistro CSV")
+
+btnOpenReports := mainGui.Add("Button", "x36 y395 w366 h32", "Abrir Carpeta de Reportes CSV")
 
 mainTabs.UseTab()
 
 ; --- PIE DE VENTANA (FOOTER AERO GLASS) ---
 mainGui.SetFont("s8 c406888", "Segoe UI")
-mainGui.Add("Text", "x12 y542 w416 Center",
-    "QA POS Automation Macro v2.3 • Windows Vista Aero Edition • Ctrl+P: Pausar • Ctrl+M: Detener")
+mainGui.Add("Text", "x12 y552 w426 Center",
+    "QA POS Automation Macro v2.4 • Windows Vista Aero Edition • Ctrl+P: Pausar • Ctrl+M: Detener")
 mainGui.SetFont("s9", "Segoe UI")
 
 ; ==============================================================================
@@ -231,7 +269,26 @@ btnPauseRec.OnEvent("Click", TogglePauseRecording)
 btnSaveRec.OnEvent("Click", SaveRecording)
 btnCancelRec.OnEvent("Click", CancelRecording)
 
-btnEditMacro.OnEvent("Click", EditSelectedMacro)
+; Eventos de Pestañas y Editor de Pasos
+mainTabs.OnEvent("Change", OnTabChanged)
+btnLoadMacro.OnEvent("Click", LoadMacroIntoEditor)
+ddlEditMacros.OnEvent("Change", LoadMacroIntoEditor)
+lvSteps.OnEvent("ItemSelect", (lv, row, selected) => (selected ? OnStepSelected(lv, row) : 0))
+lvSteps.OnEvent("DoubleClick", (lv, row) => (row > 0 ? edtStepVal.Focus() : 0))
+
+btnStepUp.OnEvent("Click", MoveStepUp)
+btnStepDown.OnEvent("Click", MoveStepDown)
+btnStepDup.OnEvent("Click", DuplicateStep)
+btnStepDel.OnEvent("Click", DeleteStep)
+
+btnApplyStep.OnEvent("Click", ApplyStepEdit)
+btnInsertStep.OnEvent("Click", InsertStep)
+btnSaveMacroFile.OnEvent("Click", SaveMacroChanges)
+btnSaveAsMacroFile.OnEvent("Click", SaveAsMacro)
+
+; Eventos de Biblioteca
+btnOpenInEditor.OnEvent("Click", OpenSelectedInEditorTab)
+btnOpenNotepad.OnEvent("Click", EditSelectedMacro)
 btnOpenMacros.OnEvent("Click", (*) => (EnsureRequiredDirectories(), Run("explore `"" . macroFolder . "`"")))
 btnOpenReports.OnEvent("Click", (*) => (EnsureRequiredDirectories(), Run("explore `"" . reportsFolder . "`"")))
 btnViewLastCSV.OnEvent("Click", OpenLastCSVReport)
@@ -240,7 +297,7 @@ mainGui.OnEvent("Close", (*) => ExitApp())
 
 ; Cargar macros y mostrar interfaz al arrancar
 RefreshMacroList()
-mainGui.Show("w440 h568")
+mainGui.Show("w450 h580")
 
 ; ==============================================================================
 ; DETECCIÓN Y FOCO DE VENTANA POS
@@ -305,7 +362,7 @@ ToggleInfiniteMode(*) {
 }
 
 RefreshMacroList(*) {
-    global ddlMacros, btnPlay, macroFolder
+    global ddlMacros, ddlEditMacros, btnPlay, macroFolder
 
     EnsureRequiredDirectories()
 
@@ -315,14 +372,24 @@ RefreshMacroList(*) {
     }
 
     ddlMacros.Delete()
+    ddlEditMacros.Delete()
+
     if (macroFiles.Length > 0) {
         ddlMacros.Add(macroFiles)
         ddlMacros.Choose(1)
+
+        ddlEditMacros.Add(macroFiles)
+        ddlEditMacros.Choose(1)
+
         if (!isRecording && !isPlaying)
             btnPlay.Enabled := true
     } else {
         ddlMacros.Add(["(Sin macros guardadas)"])
         ddlMacros.Choose(1)
+
+        ddlEditMacros.Add(["(Sin macros guardadas)"])
+        ddlEditMacros.Choose(1)
+
         btnPlay.Enabled := false
     }
 }
@@ -353,6 +420,308 @@ EditSelectedMacro(*) {
     } else {
         MsgBox("El archivo '" . fullPath . "' no existe.", "QA POS Automation", "Iconx")
     }
+}
+
+OpenSelectedInEditorTab(*) {
+    global mainTabs, ddlMacros, ddlEditMacros
+    selected := ddlMacros.Text
+    if (selected != "" && selected != "(Sin macros guardadas)") {
+        try ddlEditMacros.Text := selected
+        LoadMacroIntoEditor()
+    }
+    mainTabs.Value := 3
+}
+
+; ==============================================================================
+; LÓGICA DEL EDITOR DE PASOS
+; ==============================================================================
+
+OnTabChanged(ctrl, *) {
+    global editorSteps, ddlEditMacros
+    if (ctrl.Value == 3 && editorSteps.Length == 0 && ddlEditMacros.Text != "" && ddlEditMacros.Text != "(Sin macros guardadas)") {
+        LoadMacroIntoEditor()
+    }
+}
+
+LoadMacroIntoEditor(*) {
+    global ddlEditMacros, lvSteps, editorSteps, macroFolder, currentEditingMacro, ddlStepType, edtStepVal
+    selected := ddlEditMacros.Text
+    if (selected == "" || selected == "(Sin macros guardadas)" || selected == "(Sin macros)") {
+        return
+    }
+
+    fullPath := macroFolder . "\" . selected
+    if (!FileExist(fullPath)) {
+        MsgBox("El archivo '" . fullPath . "' no existe.", "Editor de Pasos", "Iconx")
+        return
+    }
+
+    currentEditingMacro := selected
+    editorSteps := []
+    lvSteps.Delete()
+
+    fileLines := FileRead(fullPath, "UTF-8")
+    idx := 0
+    loop parse, fileLines, "`n", "`r" {
+        line := Trim(A_LoopField)
+        if (line == "" || SubStr(line, 1, 1) == ";")
+            continue
+
+        idx++
+        stepType := ""
+        stepVal := ""
+        if (SubStr(line, 1, 6) == "Sleep,") {
+            stepType := "Pausa (ms)"
+            stepVal := Trim(SubStr(line, 7))
+        } else if (SubStr(line, 1, 5) == "Send,") {
+            cmd := Trim(SubStr(line, 6))
+            if (RegExMatch(cmd, "^\{.+\}$")) {
+                stepType := "Tecla Especial"
+                stepVal := cmd
+            } else {
+                stepType := "Texto / SKU"
+                stepVal := cmd
+            }
+        } else {
+            stepType := "Comando"
+            stepVal := line
+        }
+
+        editorSteps.Push({type: stepType, val: stepVal})
+        lvSteps.Add("", Format("{:02}", idx), stepType, stepVal)
+    }
+
+    if (editorSteps.Length > 0) {
+        lvSteps.Modify(1, "Select Focus")
+        OnStepSelected(lvSteps, 1)
+        UpdateStatus("Macro cargada en editor: " . selected . " (" . editorSteps.Length . " pasos)")
+    } else {
+        UpdateStatus("La macro seleccionada esta vacia")
+    }
+}
+
+OnStepSelected(lv, rowNumber) {
+    global editorSteps, ddlStepType, edtStepVal
+    if (rowNumber <= 0 || rowNumber > editorSteps.Length)
+        return
+    item := editorSteps[rowNumber]
+    switch item.type {
+        case "Texto / SKU": ddlStepType.Choose(1)
+        case "Tecla Especial": ddlStepType.Choose(2)
+        case "Pausa (ms)": ddlStepType.Choose(3)
+        default: ddlStepType.Choose(1)
+    }
+    edtStepVal.Text := item.val
+}
+
+ApplyStepEdit(*) {
+    global lvSteps, editorSteps, ddlStepType, edtStepVal
+    row := lvSteps.GetNext()
+    if (row == 0) {
+        MsgBox("Selecciona primero un paso de la lista para actualizar.", "Editor de Pasos", "Icon!")
+        return
+    }
+
+    newVal := Trim(edtStepVal.Text)
+    if (newVal == "") {
+        MsgBox("El valor no puede estar vacio.", "Editor de Pasos", "Icon!")
+        return
+    }
+
+    newType := ddlStepType.Text
+    if (newType == "Tecla Especial" && !RegExMatch(newVal, "^\{.+\}$")) {
+        newVal := "{" . newVal . "}"
+    } else if (newType == "Pausa (ms)") {
+        newVal := RegExReplace(newVal, "[^\d]", "")
+        if (newVal == "")
+            newVal := "100"
+    }
+
+    editorSteps[row].type := newType
+    editorSteps[row].val := newVal
+
+    lvSteps.Modify(row, "", Format("{:02}", row), newType, newVal)
+    UpdateStatus("Paso " . row . " actualizado: " . newVal)
+}
+
+MoveStepUp(*) {
+    global lvSteps, editorSteps
+    row := lvSteps.GetNext()
+    if (row <= 1)
+        return
+
+    temp := editorSteps[row]
+    editorSteps[row] := editorSteps[row - 1]
+    editorSteps[row - 1] := temp
+
+    RefreshStepListView(row - 1)
+}
+
+MoveStepDown(*) {
+    global lvSteps, editorSteps
+    row := lvSteps.GetNext()
+    if (row == 0 || row >= editorSteps.Length)
+        return
+
+    temp := editorSteps[row]
+    editorSteps[row] := editorSteps[row + 1]
+    editorSteps[row + 1] := temp
+
+    RefreshStepListView(row + 1)
+}
+
+DeleteStep(*) {
+    global lvSteps, editorSteps
+    row := lvSteps.GetNext()
+    if (row == 0) {
+        MsgBox("Selecciona un paso para eliminar.", "Editor de Pasos", "Icon!")
+        return
+    }
+
+    editorSteps.RemoveAt(row)
+    newRow := (row > editorSteps.Length) ? editorSteps.Length : row
+    RefreshStepListView(newRow)
+    UpdateStatus("Paso eliminado")
+}
+
+DuplicateStep(*) {
+    global lvSteps, editorSteps
+    row := lvSteps.GetNext()
+    if (row == 0) {
+        MsgBox("Selecciona un paso para duplicar.", "Editor de Pasos", "Icon!")
+        return
+    }
+
+    copied := {type: editorSteps[row].type, val: editorSteps[row].val}
+    editorSteps.InsertAt(row + 1, copied)
+    RefreshStepListView(row + 1)
+    UpdateStatus("Paso duplicado")
+}
+
+InsertStep(*) {
+    global lvSteps, editorSteps, ddlStepType, edtStepVal
+    val := Trim(edtStepVal.Text)
+    if (val == "") {
+        MsgBox("Ingresa un valor para el nuevo paso.", "Editor de Pasos", "Icon!")
+        return
+    }
+
+    newType := ddlStepType.Text
+    if (newType == "Tecla Especial" && !RegExMatch(val, "^\{.+\}$")) {
+        val := "{" . val . "}"
+    } else if (newType == "Pausa (ms)") {
+        val := RegExReplace(val, "[^\d]", "")
+        if (val == "")
+            val := "100"
+    }
+
+    newStep := {type: newType, val: val}
+
+    row := lvSteps.GetNext()
+    if (row == 0) {
+        editorSteps.Push(newStep)
+        insertIdx := editorSteps.Length
+    } else {
+        editorSteps.InsertAt(row + 1, newStep)
+        insertIdx := row + 1
+    }
+
+    RefreshStepListView(insertIdx)
+    UpdateStatus("Nuevo paso insertado en la posicion " . insertIdx)
+}
+
+RefreshStepListView(selectIndex := 1) {
+    global lvSteps, editorSteps
+    lvSteps.Delete()
+    for idx, step in editorSteps {
+        lvSteps.Add("", Format("{:02}", idx), step.type, step.val)
+    }
+    if (selectIndex > 0 && selectIndex <= editorSteps.Length) {
+        lvSteps.Modify(selectIndex, "Select Focus")
+        OnStepSelected(lvSteps, selectIndex)
+    }
+}
+
+SaveMacroChanges(*) {
+    global editorSteps, currentEditingMacro, macroFolder
+    if (currentEditingMacro == "") {
+        MsgBox("No hay ninguna macro cargada en el editor.", "Editor de Pasos", "Icon!")
+        return
+    }
+    if (editorSteps.Length == 0) {
+        MsgBox("La macro no contiene ningun paso.", "Editor de Pasos", "Icon!")
+        return
+    }
+
+    fullPath := macroFolder . "\" . currentEditingMacro
+    fileContent := GenerateMacroFileContent(currentEditingMacro, editorSteps)
+
+    try {
+        if FileExist(fullPath)
+            FileDelete(fullPath)
+        FileAppend(fileContent, fullPath, "UTF-8")
+        RefreshMacroList()
+        UpdateStatus("Macro guardada con exito: " . currentEditingMacro)
+        MsgBox("¡Cambios guardados exitosamente!`n`nArchivo: " . fullPath . "`nPasos: " . editorSteps.Length,
+            "Editor de Pasos", "Iconi")
+    } catch Error as err {
+        MsgBox("Error al guardar la macro: " . err.Message, "Editor de Pasos", "Iconx")
+    }
+}
+
+SaveAsMacro(*) {
+    global editorSteps, currentEditingMacro, macroFolder, ddlMacros
+    if (editorSteps.Length == 0) {
+        MsgBox("No hay pasos para guardar.", "Editor de Pasos", "Icon!")
+        return
+    }
+
+    suggested := RegExReplace(currentEditingMacro, "\.txt$", "") . "_v2.txt"
+    if (suggested == "_v2.txt" || suggested == "")
+        suggested := "Transaccion_Editada_" . FormatTime(, "yyyyMMdd_HHmmss") . ".txt"
+
+    ib := InputBox("Ingresa el nombre para la nueva macro:", "Guardar Macro Como", , suggested)
+    if (ib.Result != "OK" || Trim(ib.Value) == "")
+        return
+
+    newName := Trim(ib.Value)
+    if (!RegExMatch(newName, "\.txt$"))
+        newName .= ".txt"
+
+    fullPath := macroFolder . "\" . newName
+    fileContent := GenerateMacroFileContent(newName, editorSteps)
+
+    try {
+        if FileExist(fullPath)
+            FileDelete(fullPath)
+        FileAppend(fileContent, fullPath, "UTF-8")
+        currentEditingMacro := newName
+        RefreshMacroList()
+        try ddlMacros.Text := newName
+        UpdateStatus("Nueva macro guardada: " . newName)
+        MsgBox("¡Nueva macro creada exitosamente!`n`nArchivo: " . fullPath . "`nPasos: " . editorSteps.Length,
+            "Editor de Pasos", "Iconi")
+    } catch Error as err {
+        MsgBox("Error al guardar nueva macro: " . err.Message, "Editor de Pasos", "Iconx")
+    }
+}
+
+GenerateMacroFileContent(name, steps) {
+    out := "; Macro de Transaccion para Terminal POS`n"
+    out .= "; Archivo: " . name . "`n"
+    out .= "; Fecha de Edicion: " . FormatTime(, "yyyy-MM-dd HH:mm:ss") . "`n`n"
+    for step in steps {
+        if (step.type == "Pausa (ms)")
+            out .= "Sleep, " . step.val . "`n"
+        else if (step.type == "Tecla Especial") {
+            k := step.val
+            if (!RegExMatch(k, "^\{.+\}$"))
+                k := "{" . k . "}"
+            out .= "Send, " . k . "`n"
+        } else
+            out .= "Send, " . step.val . "`n"
+    }
+    return out
 }
 
 ; ==============================================================================
@@ -714,7 +1083,7 @@ TogglePauseRecording(*) {
 }
 
 SaveRecording(*) {
-    global isRecording, isPausedRec, macroBuffer, macroFolder, ddlMacros, edtMacroName, mainTabs
+    global isRecording, isPausedRec, macroBuffer, macroFolder, ddlMacros, ddlEditMacros, edtMacroName, mainTabs
 
     if (!isRecording)
         return
@@ -757,6 +1126,7 @@ SaveRecording(*) {
 
         RefreshMacroList()
         try ddlMacros.Text := fileName
+        try ddlEditMacros.Text := fileName
 
         try mainTabs.Value := 1
         try edtMacroName.Text := "Transaccion_" . FormatTime(, "yyyyMMdd_HHmmss")

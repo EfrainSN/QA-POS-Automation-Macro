@@ -2,7 +2,7 @@
 
 Suite portable de automatizacion de transacciones para terminales de punto de venta (POS) basada en emulacion de teclado de baja latencia con interfaz Windows Vista Aero Glass.
 
-[![Release](https://img.shields.io/badge/Release-v2.3.0-0078D7.svg?style=flat-square)](https://github.com/EfrainSN/QA-POS-Automation-Macro/releases)
+[![Release](https://img.shields.io/badge/Release-v2.4.0-0078D7.svg?style=flat-square)](https://github.com/EfrainSN/QA-POS-Automation-Macro/releases)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20POSReady%20%7C%2010%20%7C%2011-00a2ed.svg?style=flat-square)](https://github.com/EfrainSN/QA-POS-Automation-Macro)
 [![Language](https://img.shields.io/badge/Language-AutoHotkey%20v2.0-334455.svg?style=flat-square)](https://www.autohotkey.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
@@ -57,7 +57,21 @@ Ejecuta la macro seleccionada en un bucle indefinido, disenado para pruebas de r
 
 ---
 
-## 4. Controles de Seguridad y Parada de Emergencia
+## 4. Editor Visual Interactivo de Pasos
+
+A partir de la version 2.4.0, la suite integra un modulo nativo de edicion paso a paso accesible desde la pestana **"Editor de Pasos"** o directamente desde la biblioteca mediante **"Editar en Editor de Pasos"**:
+
+- **Visualizacion Estructurada:** Muestra las lineas de la macro en una tabla Win32 interactiva identificando automaticamente el numero de paso, tipo (`Texto / SKU`, `Tecla Especial`, `Pausa (ms)`) y valor de la instruccion.
+- **Modificacion Directa de SKUs:** Permite seleccionar cualquier paso de ingreso de articulo, cambiar el codigo SKU o texto por otro nuevo y aplicarlo con el boton `Actualizar Paso`.
+- **Reordenamiento Dinamico:** Botones dedicados `Subir` y `Bajar` para mover pasos hacia arriba o hacia abajo en el flujo transaccional.
+- **Duplicacion y Eliminacion:** Permite clonar lineas de escaneo repetidas o descartar pasos no requeridos con un solo clic.
+- **Insercion de Nuevos Pasos:** Agrega articulos, pausas o teclas de funcion en cualquier posicion del flujo de venta.
+- **Persistencia Segura:** Opciones para `Guardar Cambios (Sobrescribir)` directamente sobre el archivo original o `Guardar Como... (Nueva Variante)` para generar escenarios alternativos sin alterar la macro base.
+- **100% Nativo y Portable:** Implementado sobre componentes Win32 sin dependencias externas (sin navegadores embebidos ni WebView2), garantizando compatibilidad inmediata en terminales POS con Windows POSReady 7, Windows 10 IoT y Windows 11.
+
+---
+
+## 5. Controles de Seguridad y Parada de Emergencia
 
 El software incorpora manejadores de interrupcion de hilos en caliente para salvaguardar la integridad de la operacion en caja:
 
@@ -67,7 +81,7 @@ El software incorpora manejadores de interrupcion de hilos en caliente para salv
 
 ---
 
-## 5. Especificacion del Registro de Auditoria (CSV)
+## 6. Especificacion del Registro de Auditoria (CSV)
 
 Cada sesion genera de manera automatica un archivo de auditoria en el directorio `Reports/` bajo el formato de nombres `Registro_Transacciones_YYYYMMDD_HHMMSS_NombreMacro.csv`.
 
@@ -85,7 +99,7 @@ Cada sesion genera de manera automatica un archivo de auditoria en el directorio
 
 ---
 
-## 6. Procedimiento de Compilacion
+## 7. Procedimiento de Compilacion
 
 El proyecto se compila directamente en ejecutables nativos portables que no requieren instalacion de librerias, runtimes o dependencias en el terminal POS.
 
@@ -100,16 +114,16 @@ build.bat
 ```
 
 Este script detecta la version declarada en el codigo fuente y genera automaticamente:
-- `QA_POS_Automation_Macro_v2.3.exe` (Binario de 64 bits para Windows 10/11)
-- `QA_POS_Automation_Macro_v2.3_x86.exe` (Binario de 32 bits para Windows POSReady y hardware legacy)
+- `QA_POS_Automation_Macro_v2.4.exe` (Binario de 64 bits para Windows 10/11)
+- `QA_POS_Automation_Macro_v2.4_x86.exe` (Binario de 32 bits para Windows POSReady y hardware legacy)
 
 ---
 
-## 7. Estructura del Repositorio
+## 8. Estructura del Repositorio
 
 ```text
 QA-POS-Automation-Macro/
-├── QA_POS_Automation_Macro.ahk   # Codigo fuente principal (AutoHotkey v2)
+├── QA_POS_Automation_Macro.ahk   # Codigo fuente principal con Editor de Pasos (AutoHotkey v2)
 ├── build.bat                     # Script de compilacion automatica x64 y x86
 ├── COMPILATION_GUIDE.md          # Manual tecnico del proceso de compilacion
 ├── GUIA_OPERADOR_POS.md          # Guia de referencia para operadores de terminal
@@ -124,6 +138,6 @@ QA-POS-Automation-Macro/
 
 ---
 
-## 8. Licencia
+## 9. Licencia
 
 Distribuido bajo la Licencia MIT. Consulte el archivo `LICENSE` para mas informacion.
