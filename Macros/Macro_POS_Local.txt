@@ -1,0 +1,9 @@
+; Macro grabada por QA POS Automation Macro
+; Fecha de ejemplo: 2026-10-13 12:00:00
+
+Sleep, 1500
+Send, 10001
+Sleep, 500
+Send, {Enter}
+Sleep, 1000
+Send, {Enter}
