@@ -253,10 +253,12 @@ mainTabs.UseTab(5)
 
 mainGui.Add("GroupBox", "x24 y96 w402 h148", "Estado de Actualizaciones (GitHub Releases)")
 mainGui.Add("Text", "x36 y120 w150 h20 c153858", "Version Local Instalada:")
-txtLocalVer := mainGui.Add("Text", "x190 y120 w220 h20 Bold c153858", "v" . appVersion . " (Aero Edition)")
+txtLocalVer := mainGui.Add("Text", "x190 y120 w220 h20 c153858", "v" . appVersion . " (Aero Edition)")
+txtLocalVer.SetFont("Bold")
 
 mainGui.Add("Text", "x36 y142 w150 h20 c153858", "Ultima Version en GitHub:")
-txtRemoteVer := mainGui.Add("Text", "x190 y142 w220 h20 Bold c0E7D42", "(No comprobado)")
+txtRemoteVer := mainGui.Add("Text", "x190 y142 w220 h20 c0E7D42", "(No comprobado)")
+txtRemoteVer.SetFont("Bold")
 
 mainGui.Add("Text", "x36 y164 w60 h20 c153858", "Estado:")
 txtUpdateState := mainGui.Add("Text", "x100 y164 w310 h20 c153858", "Presiona 'Buscar Actualizaciones' para verificar.")
