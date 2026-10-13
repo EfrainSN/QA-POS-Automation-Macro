@@ -1,6 +1,6 @@
-# Guia de Operacion - QA POS Automation Macro v2.4
+# Guia de Operacion - QA POS Automation Macro v2.5
 
-Herramienta portable de automatizacion de transacciones para terminales de punto de venta (POS) basada en macros nativas de baja latencia con editor interactivo de pasos integrado.
+Herramienta portable de automatizacion de transacciones para terminales de punto de venta (POS) basada en macros nativas de baja latencia con editor interactivo de pasos y gestor de actualizaciones.
 
 ---
 
@@ -13,6 +13,7 @@ Principales capacidades tecnicas:
 - Prevencion de perdida de paquetes de teclado comun en soluciones de streaming remoto.
 - Interfaz grafica Windows Vista Aero Glass optimizada para paneles tactiles resistivos y capacitivos de terminales POS.
 - Editor visual interactivo de pasos para modificar, sustituir y reordenar SKUs sin necesidad de editar archivos de texto.
+- Gestor integrado de actualizaciones para monitorear nuevas versiones y mejoras publicadas en GitHub Releases.
 - Control seguro de foco y suspension de hilos con atajos globales no bloqueantes para teclas funcionales F1 a F12.
 
 ---
@@ -33,7 +34,7 @@ Principales capacidades tecnicas:
 ## 3. Instrucciones de Uso en Caja POS
 
 ### Paso 1: Despliegue
-1. Copie el archivo ejecutable (`QA_POS_Automation_Macro_v2.4.exe` o `QA_POS_Automation_Macro_v2.4_x86.exe`) en cualquier directorio del terminal.
+1. Copie el archivo ejecutable (`QA_POS_Automation_Macro_v2.5.exe` o `QA_POS_Automation_Macro_v2.5_x86.exe`) en cualquier directorio del terminal.
 2. Inicie la aplicacion con permisos de usuario estandar o administrador segun las politicas de la caja POS.
 3. La aplicacion inicializara automaticamente los directorios `Macros/` y `Reports/` si no existen.
 
@@ -74,14 +75,32 @@ Para modificar una macro existente, cambiar codigos de articulo (SKUs), reordena
 
 ---
 
-## 5. Controles de Seguridad
+## 5. Comprobacion de Actualizaciones y Nuevos Releases
+
+La herramienta incorpora un monitor nativo para mantenerse al tanto de nuevas versiones y mejoras:
+
+1. **Desde la Cabecera:**
+   Presione el boton **"Actualizaciones"** en la parte superior derecha de la ventana desde cualquier pantalla para ir directo al panel de control de versiones.
+2. **Desde la Pestana "Actualizaciones":**
+   - Presione **"Buscar Actualizaciones"** para conectarse con la API de GitHub y consultar la ultima version publicada.
+   - El panel mostrara el estado del software (`Al dia` o `Nueva Version Disponible`).
+   - El visor de **Registro de Cambios (Changelog)** cargara las notas tecnicas y novedades introducidas en la ultima version.
+3. **Descarga de Actualizaciones:**
+   - Si existe una version nueva, el boton **"Descargar Paquete ZIP Portable de la Ultima Version"** se habilitara para descargar directamente el paquete actualizado.
+   - Tambien puede pulsar **"Abrir GitHub Releases"** para explorar el historial completo de versiones en el navegador.
+4. **Operacion Offline:**
+   - En terminales sin conexion externa a Internet, la verificacion finaliza en modo seguro sin congelar la aplicacion.
+
+---
+
+## 6. Controles de Seguridad
 
 - **Ctrl + P:** Alterna el estado de pausa de la macro en curso sin reiniciar contadores ni descartar reportes.
 - **Ctrl + M:** Finalizacion inmediata del hilo de reproduccion (Kill Switch de emergencia).
 
 ---
 
-## 6. Auditoria y Registros
+## 7. Auditoria y Registros
 
 Cada sesion genera un archivo CSV estructurado dentro del directorio `Reports/` bajo la nomenclatura `Registro_Transacciones_YYYYMMDD_HHMMSS_NombreMacro.csv`, con los siguientes campos por linea:
 

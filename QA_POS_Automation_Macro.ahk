@@ -1,11 +1,11 @@
 ; ==============================================================================
 ; PROJECT: QA POS Automation Macro
-; VERSION: 2.4.0 (Windows Vista Aero Glass Edition)
+; VERSION: 2.5.0 (Windows Vista Aero Glass Edition)
 ; LANGUAGE: AutoHotkey v2.0+
 ; TARGET: Windows 10/11 / Windows POSReady / Windows Server (Terminales POS)
 ; PURPOSE: Automatización de alta precisión para transacciones en cajas POS.
-;          Incluye motor de ejecución, grabador no intrusivo y editor visual
-;          interactivo de pasos para reordenar, sustituir y modificar SKUs.
+;          Incluye motor de ejecución, grabador no intrusivo, editor visual
+;          de pasos para reordenar y sustituir SKUs, y gestor de actualizaciones.
 ; ==============================================================================
 
 #Requires AutoHotkey v2.0
@@ -15,6 +15,10 @@ SetWorkingDir(A_ScriptDir)
 ; ==============================================================================
 ; VARIABLES DE ESTADO GLOBAL
 ; ==============================================================================
+global appVersion := "2.5.0"
+global latestReleaseUrl := "https://github.com/EfrainSN/QA-POS-Automation-Macro/releases"
+global latestZipDownloadUrl := ""
+
 global isRecording := false
 global isPausedRec := false
 global isPlaying := false
@@ -94,18 +98,19 @@ EnsureRequiredDirectories()
 ; ==============================================================================
 ; INTERFAZ DE USUARIO: WINDOWS VISTA AERO GLASS EDITION
 ; ==============================================================================
-mainGui := Gui("+AlwaysOnTop -MaximizeBox", "QA POS Automation Macro v2.4")
+mainGui := Gui("+AlwaysOnTop -MaximizeBox", "QA POS Automation Macro v2.5")
 mainGui.BackColor := "D9EBF7" ; Tono azul hielo cristalino tipo Windows Vista Aero
 mainGui.SetFont("s9", "Segoe UI")
 
 ; --- ENCABEZADO AERO GLASS HEADER ---
 hdrBg := mainGui.Add("Text", "x12 y10 w426 h48 +Border Background123859", "")
-txtBrand := mainGui.Add("Text", "x24 y14 w402 h20 BackgroundTrans c5AD1FF", "QA POS AUTOMATION MACRO • AERO EDITION")
+txtBrand := mainGui.Add("Text", "x24 y14 w280 h20 BackgroundTrans c5AD1FF", "QA POS AUTOMATION MACRO • AERO EDITION")
 txtBrand.SetFont("s10 Bold", "Segoe UI")
-txtStatus := mainGui.Add("Text", "x24 y34 w402 h18 BackgroundTrans cE2F3FF", "Listo para automatizar transacciones en caja POS")
+txtStatus := mainGui.Add("Text", "x24 y34 w280 h18 BackgroundTrans cE2F3FF", "Listo para automatizar transacciones en caja POS")
+btnHeaderUpdate := mainGui.Add("Button", "x312 y16 w116 h36", "Actualizaciones")
 
 ; --- PESTAÑAS PRINCIPALES ---
-mainTabs := mainGui.Add("Tab3", "x12 y65 w426 h482", ["Automatizar", "Grabar Macro", "Editor de Pasos", "Biblioteca"])
+mainTabs := mainGui.Add("Tab3", "x12 y65 w426 h482", ["Automatizar", "Grabar Macro", "Editor de Pasos", "Biblioteca", "Actualizaciones"])
 
 ; ------------------------------------------------------------------------------
 ; PESTAÑA 1: AUTOMATIZAR TRANSACCIONES
@@ -238,14 +243,39 @@ btnOpenNotepad := mainGui.Add("Button", "x227 y295 w175 h40", "Abrir en`nBloc de
 btnOpenMacros := mainGui.Add("Button", "x36 y345 w175 h40", "Carpeta de`nMacros (.txt)")
 btnViewLastCSV := mainGui.Add("Button", "x227 y345 w175 h40", "Ver Ultimo`nRegistro CSV")
 
-btnOpenReports := mainGui.Add("Button", "x36 y395 w366 h32", "Abrir Carpeta de Reportes CSV")
+btnOpenReports := mainGui.Add("Button", "x36 y395 w175 h34", "Reportes CSV")
+btnCheckUpdatesLib := mainGui.Add("Button", "x227 y395 w175 h34", "Buscar Actualizaciones")
+
+; ------------------------------------------------------------------------------
+; PESTAÑA 5: ACTUALIZACIONES Y RELEASES
+; ------------------------------------------------------------------------------
+mainTabs.UseTab(5)
+
+mainGui.Add("GroupBox", "x24 y96 w402 h148", "Estado de Actualizaciones (GitHub Releases)")
+mainGui.Add("Text", "x36 y120 w150 h20 c153858", "Version Local Instalada:")
+txtLocalVer := mainGui.Add("Text", "x190 y120 w220 h20 Bold c153858", "v" . appVersion . " (Aero Edition)")
+
+mainGui.Add("Text", "x36 y142 w150 h20 c153858", "Ultima Version en GitHub:")
+txtRemoteVer := mainGui.Add("Text", "x190 y142 w220 h20 Bold c0E7D42", "(No comprobado)")
+
+mainGui.Add("Text", "x36 y164 w60 h20 c153858", "Estado:")
+txtUpdateState := mainGui.Add("Text", "x100 y164 w310 h20 c153858", "Presiona 'Buscar Actualizaciones' para verificar.")
+
+btnCheckUpdates := mainGui.Add("Button", "x36 y192 w180 h38 Default", "Buscar Actualizaciones")
+btnOpenReleases := mainGui.Add("Button", "x224 y192 w188 h38", "Abrir GitHub Releases")
+
+mainGui.Add("GroupBox", "x24 y252 w402 h238", "Registro de Cambios y Novedades (Changelog)")
+edtReleaseNotes := mainGui.Add("Edit", "x36 y274 w378 h168 ReadOnly BackgroundF8FBFE",
+    "Presiona 'Buscar Actualizaciones' para consultar el registro de versiones y mejoras disponibles en el repositorio.")
+
+btnDownloadZip := mainGui.Add("Button", "x36 y448 w378 h34 Disabled", "Descargar Paquete ZIP Portable de la Ultima Version")
 
 mainTabs.UseTab()
 
 ; --- PIE DE VENTANA (FOOTER AERO GLASS) ---
 mainGui.SetFont("s8 c406888", "Segoe UI")
 mainGui.Add("Text", "x12 y552 w426 Center",
-    "QA POS Automation Macro v2.4 • Windows Vista Aero Edition • Ctrl+P: Pausar • Ctrl+M: Detener")
+    "QA POS Automation Macro v2.5 • Windows Vista Aero Edition • Ctrl+P: Pausar • Ctrl+M: Detener")
 mainGui.SetFont("s9", "Segoe UI")
 
 ; ==============================================================================
@@ -291,13 +321,23 @@ btnOpenInEditor.OnEvent("Click", OpenSelectedInEditorTab)
 btnOpenNotepad.OnEvent("Click", EditSelectedMacro)
 btnOpenMacros.OnEvent("Click", (*) => (EnsureRequiredDirectories(), Run("explore `"" . macroFolder . "`"")))
 btnOpenReports.OnEvent("Click", (*) => (EnsureRequiredDirectories(), Run("explore `"" . reportsFolder . "`"")))
+btnCheckUpdatesLib.OnEvent("Click", (*) => (mainTabs.Value := 5, CheckForUpdates(true)))
 btnViewLastCSV.OnEvent("Click", OpenLastCSVReport)
+
+; Eventos de Actualizaciones
+btnHeaderUpdate.OnEvent("Click", (*) => (mainTabs.Value := 5, CheckForUpdates(false)))
+btnCheckUpdates.OnEvent("Click", (*) => CheckForUpdates(true))
+btnOpenReleases.OnEvent("Click", (*) => Run(latestReleaseUrl))
+btnDownloadZip.OnEvent("Click", (*) => (latestZipDownloadUrl != "" ? Run(latestZipDownloadUrl) : Run(latestReleaseUrl)))
 
 mainGui.OnEvent("Close", (*) => ExitApp())
 
 ; Cargar macros y mostrar interfaz al arrancar
 RefreshMacroList()
 mainGui.Show("w450 h580")
+
+; Comprobacion no intrusiva de actualizaciones en segundo plano
+SetTimer(() => CheckForUpdates(false), -1500)
 
 ; ==============================================================================
 ; DETECCIÓN Y FOCO DE VENTANA POS
@@ -437,9 +477,11 @@ OpenSelectedInEditorTab(*) {
 ; ==============================================================================
 
 OnTabChanged(ctrl, *) {
-    global editorSteps, ddlEditMacros
+    global editorSteps, ddlEditMacros, txtRemoteVer
     if (ctrl.Value == 3 && editorSteps.Length == 0 && ddlEditMacros.Text != "" && ddlEditMacros.Text != "(Sin macros guardadas)") {
         LoadMacroIntoEditor()
+    } else if (ctrl.Value == 5 && txtRemoteVer.Text == "(No comprobado)") {
+        CheckForUpdates(false)
     }
 }
 
@@ -1301,3 +1343,114 @@ ResetUI() {
 
     RefreshMacroList()
 }
+
+; ==============================================================================
+; GESTOR DE ACTUALIZACIONES (GITHUB RELEASES API)
+; ==============================================================================
+
+CleanJSONString(str) {
+    str := StrReplace(str, "\r\n", "`r`n")
+    str := StrReplace(str, "\n", "`r`n")
+    str := StrReplace(str, "\t", "    ")
+    str := StrReplace(str, '\"', '"')
+    str := StrReplace(str, "\\", "\")
+    return str
+}
+
+CompareVersions(v1, v2) {
+    v1 := RegExReplace(v1, "^v", "")
+    v2 := RegExReplace(v2, "^v", "")
+    p1 := StrSplit(v1, ".")
+    p2 := StrSplit(v2, ".")
+    loop 3 {
+        n1 := (p1.Length >= A_Index) ? Integer(p1[A_Index]) : 0
+        n2 := (p2.Length >= A_Index) ? Integer(p2[A_Index]) : 0
+        if (n1 > n2)
+            return 1
+        if (n1 < n2)
+            return -1
+    }
+    return 0
+}
+
+CheckForUpdates(showFeedback := true) {
+    global appVersion, latestReleaseUrl, latestZipDownloadUrl
+    global txtRemoteVer, txtUpdateState, edtReleaseNotes, btnDownloadZip, btnHeaderUpdate
+
+    txtUpdateState.Text := "Consultando API de GitHub Releases..."
+    try {
+        req := ComObject("Msxml2.ServerXMLHTTP.6.0")
+        req.setTimeouts(3000, 3000, 3000, 5000)
+        req.Open("GET", "https://api.github.com/repos/EfrainSN/QA-POS-Automation-Macro/releases/latest", false)
+        req.SetRequestHeader("User-Agent", "QA-POS-Automation-Macro")
+        req.SetRequestHeader("Accept", "application/vnd.github.v3+json")
+        req.Send()
+
+        if (req.Status != 200) {
+            txtUpdateState.Text := "Error de servidor HTTP " . req.Status
+            if (showFeedback)
+                MsgBox("No se pudo verificar actualizaciones (HTTP " . req.Status . ").", "Actualizaciones", "Icon! 262144")
+            return
+        }
+
+        resp := req.ResponseText
+        remoteTag := ""
+        if RegExMatch(resp, '\"tag_name\":\s*\"([^\"]+)\"', &mTag)
+            remoteTag := mTag[1]
+
+        releaseTitle := ""
+        if RegExMatch(resp, '\"name\":\s*\"([^\"]+)\"', &mName)
+            releaseTitle := CleanJSONString(mName[1])
+
+        releaseUrl := ""
+        if RegExMatch(resp, '\"html_url\":\s*\"([^\"]+)\"', &mUrl)
+            releaseUrl := mUrl[1]
+        if (releaseUrl != "")
+            latestReleaseUrl := releaseUrl
+
+        bodyText := ""
+        if RegExMatch(resp, '\"body\":\s*\"(.*?)(?<!\\)\"', &mBody)
+            bodyText := CleanJSONString(mBody[1])
+
+        zipUrl := ""
+        if RegExMatch(resp, '\"browser_download_url\":\s*\"([^\"]+Portable\.zip)\"', &mZip)
+            zipUrl := mZip[1]
+        latestZipDownloadUrl := zipUrl
+
+        comp := CompareVersions(remoteTag, appVersion)
+        if (comp > 0) {
+            txtRemoteVer.Text := remoteTag . " (Nueva Version Disponible)"
+            txtUpdateState.Text := "Existe una nueva version disponible para descargar."
+            btnHeaderUpdate.Text := "Nueva Version!"
+            btnDownloadZip.Enabled := (latestZipDownloadUrl != "")
+            if (showFeedback) {
+                MsgBox("Hay una nueva version disponible en GitHub:`n`nInstalada: v" . appVersion . "`nDisponible: " . remoteTag .
+                    "`n`nPuedes revisar las novedades o descargar el paquete portable.", "Actualizaciones", "Iconi 262144")
+            }
+        } else {
+            txtRemoteVer.Text := remoteTag . " (Al dia)"
+            txtUpdateState.Text := "Tu aplicacion esta actualizada a la version mas reciente."
+            btnHeaderUpdate.Text := "v" . appVersion . " (Al dia)"
+            btnDownloadZip.Enabled := (latestZipDownloadUrl != "")
+            if (showFeedback) {
+                MsgBox("Tu version (v" . appVersion . ") esta completamente actualizada.`nNo hay nuevas versiones pendientes.",
+                    "Actualizaciones", "Iconi 262144")
+            }
+        }
+
+        displayText := "VERSION EN GITHUB: " . remoteTag . "`r`n"
+        displayText .= "TITULO: " . releaseTitle . "`r`n"
+        displayText .= "ENLACE: " . latestReleaseUrl . "`r`n`r`n"
+        displayText .= "--- NOVEDADES Y NOTAS DE LA VERSION ---`r`n"
+        displayText .= (bodyText != "") ? bodyText : "(Sin notas de version declaradas)"
+        edtReleaseNotes.Text := displayText
+
+    } catch Error as err {
+        txtUpdateState.Text := "No se pudo conectar a GitHub (Modo offline)."
+        if (showFeedback) {
+            MsgBox("No se pudo conectar con GitHub.`nTerminal sin conexion a internet o bloqueada por firewall.`n`nDetalle: " . err.Message,
+                "Actualizaciones", "Icon! 262144")
+        }
+    }
+}
+
