@@ -157,3 +157,10 @@ QA-POS-Automation-Macro/
 ## 10. Licencia
 
 Distribuido bajo la Licencia MIT. Consulte el archivo `LICENSE` para mas informacion.
+
+---
+
+## 11. Reconocimiento de Asistencia de IA
+
+Este proyecto fue conceptualizado, diseñado, desarrollado y probado bajo la dirección y autoría de **Efrain Cortez**, contando con el apoyo y asistencia técnica de modelos de **Inteligencia Artificial (IA)** para pair-programming, diseño de arquitectura de eventos de bajo nivel en Windows Win32, interfaz Aero Glass nativa, pruebas de concurrencia y documentación técnica.
+
