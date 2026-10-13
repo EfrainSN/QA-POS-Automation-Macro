@@ -1,0 +1,10 @@
+# Binarios compilados y paquetes portables (distribuidos en GitHub Releases)
+*.exe
+*.rar
+*.zip
+
+# Reportes locales y archivos temporales
+Reports/*.csv
+*.log
+.system_generated/
+scratch/
