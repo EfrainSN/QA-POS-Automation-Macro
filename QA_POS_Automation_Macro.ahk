@@ -1830,7 +1830,8 @@ CheckXstoreSentinel(logHandle, &errorReason := "", &errorDetail := "") {
         return false
 
     ; 1. Prompts modales de error de Xstore en OPCHAIN_FLOW
-    if RegExMatch(chunk, "\[Prompt\]\s+(ERROR_WITH_INFO|VALIDATION_ERROR_MESSAGE|FORM_VALIDATION_FAILED[A-Za-z0-9_]*|PRINTER_ERROR|WORKSTATION_IS_CLOSED[A-Za-z0-9_]*)", &match) {
+    ; Nota: PRINTER_ERROR se omite deliberadamente porque en cajas de QA/pruebas las impresoras fiscales pueden no estar disponibles
+    if RegExMatch(chunk, "\[Prompt\]\s+(ERROR_WITH_INFO|VALIDATION_ERROR_MESSAGE|FORM_VALIDATION_FAILED[A-Za-z0-9_]*|WORKSTATION_IS_CLOSED[A-Za-z0-9_]*)", &match) {
         errorReason := match[1]
         switch errorReason {
             case "ERROR_WITH_INFO":
@@ -1839,8 +1840,6 @@ CheckXstoreSentinel(logHandle, &errorReason := "", &errorDetail := "") {
                 errorDetail := "Validacion de pago o monto de transaccion rechazada"
             case "FORM_VALIDATION_FAILED", "FORM_VALIDATION_FAILED_ALT":
                 errorDetail := "Formulario con campos obligatorios vacios o invalidos"
-            case "PRINTER_ERROR":
-                errorDetail := "Error de impresora fiscal o dispositivo de impresion"
             case "WORKSTATION_IS_CLOSED_NO_ACCESS":
                 errorDetail := "Caja cerrada sin turno operativo"
             default:

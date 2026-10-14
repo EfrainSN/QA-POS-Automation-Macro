@@ -11,7 +11,7 @@ QA POS Automation Macro es una aplicacion disenada para automatizar secuencias r
 Principales capacidades tecnicas:
 - Latencia menor a 5 ms por instruccion mediante llamadas directas a la API de entrada de Windows.
 - Prevencion de perdida de paquetes de teclado comun en soluciones de streaming remoto.
-- **Centinela Xstore (Watchdog Activo):** Monitoreo continuo de `xstore.log` para detener automaticamente la ejecucion ante errores de caja (SKU no registrado, validaciones de cobro rechazadas, fallos de impresora o caja cerrada), capturando la pantalla del POS en `.png` al instante.
+- **Centinela Xstore (Watchdog Activo):** Monitoreo continuo de `xstore.log` para detener automaticamente la ejecucion ante errores de caja (SKU no registrado, validaciones de cobro rechazadas o caja cerrada), capturando la pantalla del POS en `.png` al instante e ignorando avisos de impresion para facilitar pruebas en terminales sin hardware fiscal.
 - Interfaz grafica Windows Vista Aero Glass optimizada para paneles tactiles resistivos y capacitivos de terminales POS.
 - Editor visual interactivo de pasos para modificar, sustituir y reordenar SKUs sin necesidad de editar archivos de texto.
 - Gestor integrado de actualizaciones para monitorear nuevas versiones y mejoras publicadas en GitHub Releases.

@@ -21,9 +21,9 @@ A partir de la version 2.6.0, la suite incorpora un subsistema Centinela disenad
   - `[Prompt] ERROR_WITH_INFO`: Articulo o SKU no registrado en catalogo (Item Not On File).
   - `[Prompt] VALIDATION_ERROR_MESSAGE`: Reglas de monto de pago o validaciones de cobro rechazadas.
   - `[Prompt] FORM_VALIDATION_FAILED` / `FORM_VALIDATION_FAILED_ALT`: Formularios de caja con campos obligatorios vacios.
-  - `[Prompt] PRINTER_ERROR`: Falla de conexion o fin de papel en la impresora fiscal.
   - `[Prompt] WORKSTATION_IS_CLOSED_NO_ACCESS`: Caja cerrada sin turno operativo activo.
   - `X[Rule]`: Reglas de negocio internas rechazadas por la cadena de operaciones.
+  - *(Nota: Los eventos de impresora fiscal `PRINTER_ERROR` se omiten deliberadamente para permitir pruebas continuas en cajas de QA sin periféricos de impresión conectados).*
 - **Filtro Anti Falsos Positivos:** Diseñado y validado sobre trazas reales de produccion para ignorar los registros normales de depuracion etiquetados como `ERROR` por librerias de integracion de precios o facturacion electronica (Siman/VTOL/FEL), deteniendo el flujo unica y exclusivamente ante verdaderas interrupciones funcionales.
 - **Auto-Parada y Proteccion del POS:** Al detectar cualquier popup de error o regla rechazada, el Centinela interrumpe inmediatamente el envio de teclas subsecuentes para evitar desfasar los menus de la caja registradora.
 - **Captura de Pantalla Forense Automatica:** En el instante exacto del fallo, el motor invoca la API nativa de Windows GDI+ para tomar una captura de pantalla completa en formato `.png` de alta resolucion, almacenandola de forma ordenada en `Reports/Screenshots/Error_Ciclo_<N>_<timestamp>.png`.
