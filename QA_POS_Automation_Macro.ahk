@@ -1,6 +1,6 @@
 ; ==============================================================================
 ; PROJECT: QA POS Automation Macro
-; VERSION: 2.5.0 (Windows Vista Aero Glass Edition)
+; VERSION: 2.6.0 (Windows Vista Aero Glass Edition)
 ; LANGUAGE: AutoHotkey v2.0+
 ; TARGET: Windows 10/11 / Windows POSReady / Windows Server (Terminales POS)
 ; PURPOSE: Automatización de alta precisión para transacciones en cajas POS.
@@ -17,7 +17,7 @@ SetTitleMatchMode("Slow")   ; Inspeccion exhaustiva para terminales POS
 ; ==============================================================================
 ; VARIABLES DE ESTADO GLOBAL
 ; ==============================================================================
-global appVersion := "2.5.0"
+global appVersion := "2.6.0"
 global latestReleaseUrl := "https://github.com/EfrainSN/QA-POS-Automation-Macro/releases"
 global latestZipDownloadUrl := ""
 
@@ -37,6 +37,9 @@ global keyHook := ""
 ; Directorios (Rutas absolutas ancladas para portabilidad total en POS)
 global macroFolder := A_ScriptDir . "\Macros"
 global reportsFolder := A_ScriptDir . "\Reports"
+global screenshotsFolder := reportsFolder . "\Screenshots"
+global xstoreLogPath := "C:\xstore\log\xstore.log"
+global sentinelEnabled := true
 
 ; Telemetría y Estado de Automatización
 global autoTotalCycles := 1
@@ -67,7 +70,7 @@ global specialKeys := Map(
 ; GESTIÓN DE DIRECTORIOS Y RECURSOS PORTABLES
 ; ==============================================================================
 EnsureRequiredDirectories() {
-    global macroFolder, reportsFolder
+    global macroFolder, reportsFolder, screenshotsFolder
     createdAny := false
 
     if (!DirExist(macroFolder)) {
@@ -90,6 +93,15 @@ EnsureRequiredDirectories() {
         }
     }
 
+    if (!DirExist(screenshotsFolder)) {
+        try {
+            DirCreate(screenshotsFolder)
+            createdAny := true
+        } catch Error as err {
+            ; Carpeta de capturas opcional
+        }
+    }
+
     if (FileExist(A_ScriptDir . "\Macro_POS_Local.txt") && !FileExist(macroFolder . "\Macro_POS_Local.txt")) {
         try FileCopy(A_ScriptDir . "\Macro_POS_Local.txt", macroFolder . "\Macro_POS_Local.txt", 0)
     }
@@ -102,7 +114,7 @@ EnsureRequiredDirectories()
 ; ==============================================================================
 ; INTERFAZ DE USUARIO: WINDOWS VISTA AERO GLASS EDITION
 ; ==============================================================================
-mainGui := Gui("+AlwaysOnTop -MaximizeBox", "QA POS Automation Macro v2.5")
+mainGui := Gui("+AlwaysOnTop -MaximizeBox", "QA POS Automation Macro v2.6")
 mainGui.BackColor := "D9EBF7" ; Tono azul hielo cristalino tipo Windows Vista Aero
 mainGui.SetFont("s9", "Segoe UI")
 
@@ -135,25 +147,28 @@ btnRefresh := mainGui.Add("Button", "x276 y189 w70 h26", "Recargar")
 btnOpenFolderMacro := mainGui.Add("Button", "x350 y189 w64 h26", "Carpeta")
 mainGui.Add("Text", "x36 y220 w378 h18 c416A8C", "Selecciona la secuencia registrada para ejecutar en la terminal POS.")
 
-; 3. Modo de Ejecución de Transacciones
-mainGui.Add("GroupBox", "x24 y252 w402 h118", "3. Modo de Automatizacion")
-mainGui.Add("Text", "x36 y274 w95 h20 c153858", "Ejecutar:")
-radModeSingle := mainGui.Add("Radio", "x135 y273 w110 h20 Checked", "1 Transaccion")
-radModeBatch := mainGui.Add("Radio", "x250 y273 w65 h20", "Lote:")
-edtReps := mainGui.Add("Edit", "x318 y271 w50 h22 Number Center BackgroundFFFFFF Disabled", "5")
-mainGui.Add("Text", "x372 y274 w35 h20 c416A8C", "veces")
+; 3. Modo de Ejecución de Transacciones y Centinela Xstore
+mainGui.Add("GroupBox", "x24 y252 w402 h118", "3. Modo de Automatizacion y Centinela POS")
+mainGui.Add("Text", "x36 y272 w60 h20 c153858", "Ejecutar:")
+radModeSingle := mainGui.Add("Radio", "x100 y271 w105 h20 Checked", "1 Transaccion")
+radModeBatch := mainGui.Add("Radio", "x210 y271 w50 h20", "Lote:")
+edtReps := mainGui.Add("Edit", "x265 y269 w45 h22 Number Center BackgroundFFFFFF Disabled", "5")
+mainGui.Add("Text", "x315 y272 w35 h20 c416A8C", "veces")
+chkInfinite := mainGui.Add("CheckBox", "x355 y271 w65 h20", "Infinito")
 
-chkInfinite := mainGui.Add("CheckBox", "x135 y298 w180 h20", "Modo Continuo sin fin (inf)")
-
-mainGui.Add("Text", "x36 y330 w95 h20 c153858", "Velocidad:")
-ddlSpeed := mainGui.Add("DropDownList", "x135 y327 w130 Choose2", [
+mainGui.Add("Text", "x36 y298 w70 h20 c153858", "Velocidad:")
+ddlSpeed := mainGui.Add("DropDownList", "x110 y295 w140 Choose2", [
     "0.8x (Seguro / Pausado)",
     "1.0x (Normal Recomendado)",
     "1.2x (Rapido POS)",
     "1.5x (Turbo Agil)"
 ])
-mainGui.Add("Text", "x274 y330 w130 h20 c416A8C", "Pausa: 1.0s / txn")
+mainGui.Add("Text", "x258 y298 w156 h20 c416A8C", "Pausa: 1.0s / txn")
 edtLoopDelay := mainGui.Add("Edit", "x0 y0 w0 h0 Hidden", "1000")
+
+chkSentinel := mainGui.Add("CheckBox", "x36 y324 w195 h20 Checked", "Centinela Xstore (Auto-Parada)")
+btnSentinelPath := mainGui.Add("Button", "x235 y322 w85 h22", "Ruta Log...")
+txtSentinelStatus := mainGui.Add("Text", "x325 y325 w92 h18 Right c0E7D42", "[Log Activo]")
 
 ; 4. Monitor de Progreso Aero Glass
 mainGui.Add("GroupBox", "x24 y376 w402 h84", "Estado de la Automatizacion")
@@ -240,15 +255,17 @@ txtRepInfo3 := mainGui.Add("Text", "x36 y170 w378 h20 c153858", "Duracion Total:
 txtRepInfo4 := mainGui.Add("Text", "x36 y195 w378 h20 c153858", "Promedio por Transaccion: 0.0s")
 txtRepInfo5 := mainGui.Add("Text", "x36 y220 w378 h20 c0E7D42", "Tasa de Exito: 100%")
 
-mainGui.Add("GroupBox", "x24 y270 w402 h172", "Gestion de Macros y Auditoria")
-btnOpenInEditor := mainGui.Add("Button", "x36 y295 w175 h40", "Editar en`nEditor de Pasos")
-btnOpenNotepad := mainGui.Add("Button", "x227 y295 w175 h40", "Abrir en`nBloc de Notas")
+mainGui.Add("GroupBox", "x24 y262 w402 h180", "Gestion de Macros, Auditoria y Capturas")
+btnOpenInEditor := mainGui.Add("Button", "x36 y284 w175 h36", "Editar en`nEditor de Pasos")
+btnOpenNotepad := mainGui.Add("Button", "x227 y284 w175 h36", "Abrir en`nBloc de Notas")
 
-btnOpenMacros := mainGui.Add("Button", "x36 y345 w175 h40", "Carpeta de`nMacros (.txt)")
-btnViewLastCSV := mainGui.Add("Button", "x227 y345 w175 h40", "Ver Ultimo`nRegistro CSV")
+btnOpenMacros := mainGui.Add("Button", "x36 y325 w175 h36", "Carpeta de`nMacros (.txt)")
+btnViewLastCSV := mainGui.Add("Button", "x227 y325 w175 h36", "Ver Ultimo`nRegistro CSV")
 
-btnOpenReports := mainGui.Add("Button", "x36 y395 w175 h34", "Reportes CSV")
-btnCheckUpdatesLib := mainGui.Add("Button", "x227 y395 w175 h34", "Buscar Actualizaciones")
+btnOpenReports := mainGui.Add("Button", "x36 y366 w175 h34", "Reportes CSV")
+btnCheckUpdatesLib := mainGui.Add("Button", "x227 y366 w175 h34", "Buscar Actualizaciones")
+
+btnOpenScreenshots := mainGui.Add("Button", "x36 y405 w366 h30", "Ver Capturas de Pantalla de Error (.png)")
 
 ; ------------------------------------------------------------------------------
 ; PESTAÑA 5: ACTUALIZACIONES Y RELEASES
@@ -281,7 +298,7 @@ mainTabs.UseTab()
 ; --- PIE DE VENTANA (FOOTER AERO GLASS) ---
 mainGui.SetFont("s8 c406888", "Segoe UI")
 mainGui.Add("Text", "x12 y552 w426 Center",
-    "QA POS Automation Macro v2.5 • Windows Vista Aero Edition • Ctrl+P: Pausar • Ctrl+M: Detener")
+    "QA POS Automation Macro v2.6 • Windows Vista Aero Edition • Ctrl+P: Pausar • Ctrl+M: Detener")
 mainGui.SetFont("s9", "Segoe UI")
 
 ; ==============================================================================
@@ -295,6 +312,9 @@ radModeSingle.OnEvent("Click", UpdateExecutionMode)
 radModeBatch.OnEvent("Click", UpdateExecutionMode)
 chkInfinite.OnEvent("Click", ToggleInfiniteMode)
 ddlSpeed.OnEvent("Change", UpdateSpeedMultiplier)
+
+chkSentinel.OnEvent("Click", (*) => (sentinelEnabled := (chkSentinel.Value == 1), UpdateSentinelStatus()))
+btnSentinelPath.OnEvent("Click", ConfigureSentinelPath)
 
 btnPlay.OnEvent("Click", StartAutomation)
 btnPausePlay.OnEvent("Click", TogglePauseAutomation)
@@ -329,6 +349,7 @@ btnOpenMacros.OnEvent("Click", (*) => (EnsureRequiredDirectories(), Run("explore
 btnOpenReports.OnEvent("Click", (*) => (EnsureRequiredDirectories(), Run("explore `"" . reportsFolder . "`"")))
 btnCheckUpdatesLib.OnEvent("Click", (*) => (mainTabs.Value := 5, CheckForUpdates(true)))
 btnViewLastCSV.OnEvent("Click", OpenLastCSVReport)
+btnOpenScreenshots.OnEvent("Click", (*) => (EnsureRequiredDirectories(), Run("explore `"" . screenshotsFolder . "`"")))
 
 ; Eventos de Actualizaciones
 btnHeaderUpdate.OnEvent("Click", (*) => (mainTabs.Value := 5, CheckForUpdates(false)))
@@ -338,8 +359,10 @@ btnDownloadZip.OnEvent("Click", (*) => (latestZipDownloadUrl != "" ? Run(latestZ
 
 mainGui.OnEvent("Close", (*) => ExitApp())
 
-; Cargar macros y mostrar interfaz al arrancar
+; Cargar macros, detectar log y mostrar interfaz al arrancar
 RefreshMacroList()
+DetectDefaultLogPath()
+UpdateSentinelStatus()
 mainGui.Show("w450 h580")
 
 ; Deteccion automatica de ventana POS o Xstore activa al arrancar
@@ -972,6 +995,22 @@ StartAutomation(*) {
     stopPlayback := false
     cycleDurationSec := 0.0
 
+    logFileHandle := ""
+    sentinelTriggered := false
+    sentinelReason := ""
+    sentinelDetail := ""
+    lastErrorScreenshot := ""
+
+    if (sentinelEnabled && FileExist(xstoreLogPath)) {
+        try {
+            logFileHandle := FileOpen(xstoreLogPath, "r-d", "UTF-8")
+            if (logFileHandle)
+                logFileHandle.Seek(0, 2) ; Anclar al final actual del log (solo monitorear nuevas lineas)
+        } catch {
+            logFileHandle := ""
+        }
+    }
+
     csvName := "Registro_Transacciones_" . FormatTime(, "yyyyMMdd_HHmmss") . "_" . RegExReplace(selectedMacro, "\.txt$", "") . ".csv"
     autoCurrentCSV := reportsFolder . "\" . csvName
     csvHeader := "Transaccion,Fecha_Inicio,Fecha_Fin,Duracion_Seg,Duracion_Ms,Estado,Macro`n"
@@ -988,6 +1027,10 @@ StartAutomation(*) {
         ans := MsgBox("No se pudo enfocar automaticamente la ventana ('" . edtTargetWin.Text . "').`n¿Deseas enviar las pulsaciones de todas formas?",
             "Aviso de Foco POS", "YesNo Icon? 262144")
         if (ans != "Yes") {
+            if (logFileHandle) {
+                try logFileHandle.Close()
+                logFileHandle := ""
+            }
             isPlaying := false
             ResetUI()
             UpdateStatus("Cancelado: ventana POS no detectada")
@@ -1049,6 +1092,21 @@ StartAutomation(*) {
                         InterruptibleSleep(keyDelay)
                     }
                 }
+
+                ; Monitoreo del Centinela Xstore despues de cada accion
+                if (sentinelEnabled && logFileHandle && !stopPlayback) {
+                    errR := "", errD := ""
+                    if (CheckXstoreSentinel(logFileHandle, &errR, &errD)) {
+                        sentinelTriggered := true
+                        sentinelReason := errR
+                        sentinelDetail := errD
+                        stopPlayback := true
+                        lastErrorScreenshot := CaptureWindowScreenshot(edtTargetWin.Text, autoCurrentCycle)
+                        SoundBeep(450, 180)
+                        SoundBeep(350, 350)
+                        break
+                    }
+                }
             }
 
             cycleEndTick := A_TickCount
@@ -1056,7 +1114,10 @@ StartAutomation(*) {
             cycleDurationMs := cycleEndTick - cycleStartTick
             cycleDurationSec := Round(cycleDurationMs / 1000, 2)
 
-            if (stopPlayback) {
+            if (sentinelTriggered) {
+                autoFailCount++
+                logStatus := "FALLO_CENTINELA (" . sentinelReason . " - " . sentinelDetail . ")"
+            } else if (stopPlayback) {
                 autoFailCount++
                 logStatus := "INTERRUMPIDO"
             } else {
@@ -1076,6 +1137,10 @@ StartAutomation(*) {
         UpdateStatus("Error durante ejecucion: " . err.Message)
         MsgBox("Error inesperado en la reproduccion de la macro:`n" . err.Message, "Error de Automatizacion", "Iconx 262144")
     } finally {
+        if (logFileHandle) {
+            try logFileHandle.Close()
+            logFileHandle := ""
+        }
         ; Restablecer inmediatamente el estado interno y la botonera
         isPlaying := false
         isPausedPlay := false
@@ -1086,7 +1151,17 @@ StartAutomation(*) {
     }
 
     ; Notificacion visual y sonora (el boton ya se encuentra reactivado)
-    if (stopPlayback) {
+    if (sentinelTriggered) {
+        UpdateStatus("Detenido por Centinela: " . SubStr(sentinelReason, 1, 35))
+        msgText := "¡El Centinela Xstore detecto una condicion de fallo o popup inesperado en caja!`n`n"
+        msgText .= "Transaccion: " . autoCurrentCycle . " de " . totalReps . "`n"
+        msgText .= "Motivo: " . sentinelReason . "`n"
+        msgText .= "Detalle: " . sentinelDetail . "`n`n"
+        if (lastErrorScreenshot != "")
+            msgText .= "Captura de pantalla guardada en:`n" . lastErrorScreenshot . "`n`n"
+        msgText .= "La ejecucion se ha detenido de inmediato para evitar desfasar el POS.`nRegistro CSV guardado en: " . autoCurrentCSV
+        MsgBox(msgText, "Alerta Centinela Xstore", "Iconx 262144")
+    } else if (stopPlayback) {
         UpdateStatus("Automatizacion detenida por el usuario")
         SoundBeep(500, 200)
         MsgBox("Ejecucion detenida en la transaccion " . autoCurrentCycle . " de " . totalReps . ".`n`nRegistro guardado en:`n" . autoCurrentCSV,
@@ -1686,5 +1761,166 @@ CheckForUpdates(showFeedback := true) {
                 "Actualizaciones", "Icon! 262144")
         }
     }
+}
+
+; ==============================================================================
+; SUBSISTEMA CENTINELA XSTORE (DETECCIÓN Y AUDITORÍA EN TIEMPO REAL)
+; ==============================================================================
+
+DetectDefaultLogPath() {
+    global xstoreLogPath
+    candidates := [
+        "C:\xstore\log\xstore.log",
+        "D:\xstore\log\xstore.log",
+        A_ScriptDir . "\xstor_14_10_2026e.log",
+        A_ScriptDir . "\xstore.log"
+    ]
+    for cand in candidates {
+        if FileExist(cand) {
+            xstoreLogPath := cand
+            return cand
+        }
+    }
+    return xstoreLogPath
+}
+
+UpdateSentinelStatus() {
+    global xstoreLogPath, txtSentinelStatus, chkSentinel
+    if (chkSentinel.Value == 0) {
+        txtSentinelStatus.Text := "[Inactivo]"
+        txtSentinelStatus.SetFont("c888888")
+    } else if (FileExist(xstoreLogPath)) {
+        txtSentinelStatus.Text := "[Log Activo]"
+        txtSentinelStatus.SetFont("c0E7D42")
+    } else {
+        txtSentinelStatus.Text := "[Sin Log]"
+        txtSentinelStatus.SetFont("cBA1A1A")
+    }
+}
+
+ConfigureSentinelPath(*) {
+    global xstoreLogPath, mainGui
+    selectedFile := FileSelect(3, xstoreLogPath, "Seleccionar archivo de log de Xstore", "Archivos de Log (*.log; *.txt)")
+    if (selectedFile != "") {
+        xstoreLogPath := selectedFile
+        UpdateSentinelStatus()
+        MsgBox("Ruta de Xstore Log configurada exitosamente:`n`n" . xstoreLogPath, "Centinela Xstore", "Iconi 262144")
+    }
+}
+
+CheckXstoreSentinel(logHandle, &errorReason := "", &errorDetail := "") {
+    if (!logHandle)
+        return false
+
+    ; Si no hay nuevos bytes por leer, retornar de inmediato (cero consumo de CPU)
+    if (logHandle.AtEOF || logHandle.Pos >= logHandle.Length)
+        return false
+
+    newBytes := logHandle.Length - logHandle.Pos
+    if (newBytes <= 0)
+        return false
+
+    ; Si el log crecio demasiado de golpe, leer los ultimos 64 KB
+    if (newBytes > 65536) {
+        logHandle.Seek(-65536, 2)
+    }
+
+    chunk := logHandle.Read()
+    if (chunk == "")
+        return false
+
+    ; 1. Prompts modales de error de Xstore en OPCHAIN_FLOW
+    if RegExMatch(chunk, "\[Prompt\]\s+(ERROR_WITH_INFO|VALIDATION_ERROR_MESSAGE|FORM_VALIDATION_FAILED[A-Za-z0-9_]*|PRINTER_ERROR|WORKSTATION_IS_CLOSED[A-Za-z0-9_]*)", &match) {
+        errorReason := match[1]
+        switch errorReason {
+            case "ERROR_WITH_INFO":
+                errorDetail := "Articulo o SKU no registrado (Item Not On File)"
+            case "VALIDATION_ERROR_MESSAGE":
+                errorDetail := "Validacion de pago o monto de transaccion rechazada"
+            case "FORM_VALIDATION_FAILED", "FORM_VALIDATION_FAILED_ALT":
+                errorDetail := "Formulario con campos obligatorios vacios o invalidos"
+            case "PRINTER_ERROR":
+                errorDetail := "Error de impresora fiscal o dispositivo de impresion"
+            case "WORKSTATION_IS_CLOSED_NO_ACCESS":
+                errorDetail := "Caja cerrada sin turno operativo"
+            default:
+                errorDetail := "Ventana modal de error en Xstore (" . errorReason . ")"
+        }
+        return true
+    }
+
+    ; 2. Reglas de negocio rechazadas en OPCHAIN_FLOW
+    if RegExMatch(chunk, "X\[Rule\]\s+class\s+([A-Za-z0-9_\.]+)", &matchRule) {
+        errorReason := "Regla Rechazada"
+        errorDetail := "Regla de caja no cumplida: " . matchRule[1]
+        return true
+    }
+
+    ; 3. Excepciones criticas en OPCHAIN_FLOW o hilo de caja
+    if (InStr(chunk, "CheckItemNotOnFileOp") && InStr(chunk, "ERROR_WITH_INFO")) {
+        errorReason := "ItemNotOnFile"
+        errorDetail := "SKU o codigo de barra no encontrado en catalogo"
+        return true
+    }
+
+    return false
+}
+
+CaptureWindowScreenshot(targetTitle, cycleNum := 0) {
+    global screenshotsFolder, mainGui
+    EnsureRequiredDirectories()
+
+    targetHwnd := 0
+    if (targetTitle != "" && WinExist(targetTitle))
+        targetHwnd := WinExist(targetTitle)
+    else
+        targetHwnd := DllCall("GetDesktopWindow", "Ptr")
+
+    stamp := FormatTime(, "yyyyMMdd_HHmmss")
+    filename := "Error_Ciclo_" . cycleNum . "_" . stamp . ".png"
+    outputPath := screenshotsFolder . "\" . filename
+
+    pToken := 0
+    si := Buffer(24, 0)
+    NumPut("UInt", 1, si, 0)
+    if (DllCall("gdiplus\GdiplusStartup", "UPtr*", &pToken, "Ptr", si.Ptr, "Ptr", 0) != 0)
+        return ""
+
+    rect := Buffer(16, 0)
+    if (!DllCall("GetWindowRect", "Ptr", targetHwnd, "Ptr", rect.Ptr)) {
+        DllCall("gdiplus\GdiplusShutdown", "Ptr", pToken)
+        return ""
+    }
+    w := NumGet(rect, 8, "Int") - NumGet(rect, 0, "Int")
+    h := NumGet(rect, 12, "Int") - NumGet(rect, 4, "Int")
+    if (w <= 0 || h <= 0) {
+        w := A_ScreenWidth
+        h := A_ScreenHeight
+        targetHwnd := DllCall("GetDesktopWindow", "Ptr")
+    }
+
+    hdcSrc := DllCall("GetDC", "Ptr", targetHwnd, "Ptr")
+    hdcDest := DllCall("CreateCompatibleDC", "Ptr", hdcSrc, "Ptr")
+    hbm := DllCall("CreateCompatibleBitmap", "Ptr", hdcSrc, "Int", w, "Int", h, "Ptr")
+    hbmOld := DllCall("SelectObject", "Ptr", hdcDest, "Ptr", hbm, "Ptr")
+    DllCall("BitBlt", "Ptr", hdcDest, "Int", 0, "Int", 0, "Int", w, "Int", h, "Ptr", hdcSrc, "Int", 0, "Int", 0, "UInt", 0x00CC0020)
+
+    pBitmap := 0
+    DllCall("gdiplus\GdipCreateBitmapFromHBITMAP", "Ptr", hbm, "Ptr", 0, "UPtr*", &pBitmap)
+
+    ; CLSID para codificador PNG de Windows: {557CF406-1A04-11D3-9A73-0000F81EF32E}
+    clsidPNG := Buffer(16, 0)
+    DllCall("ole32\CLSIDFromString", "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}", "Ptr", clsidPNG.Ptr)
+
+    res := DllCall("gdiplus\GdipSaveImageToFile", "Ptr", pBitmap, "WStr", outputPath, "Ptr", clsidPNG.Ptr, "Ptr", 0)
+
+    DllCall("gdiplus\GdipDisposeImage", "Ptr", pBitmap)
+    DllCall("SelectObject", "Ptr", hdcDest, "Ptr", hbmOld)
+    DllCall("DeleteObject", "Ptr", hbm)
+    DllCall("DeleteDC", "Ptr", hdcDest)
+    DllCall("ReleaseDC", "Ptr", targetHwnd, "Ptr", hdcSrc)
+    DllCall("gdiplus\GdiplusShutdown", "Ptr", pToken)
+
+    return (res == 0 && FileExist(outputPath)) ? outputPath : ""
 }
 

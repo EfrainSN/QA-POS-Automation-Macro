@@ -36,12 +36,12 @@ Salidas generadas:
 
 ### Arquitectura 64 bits:
 ```cmd
-"%LOCALAPPDATA%\Programs\AutoHotkey\Compiler\Ahk2Exe.exe" /in "QA_POS_Automation_Macro.ahk" /out "QA_POS_Automation_Macro_v2.5.exe" /base "%LOCALAPPDATA%\Programs\AutoHotkey\v2\AutoHotkey64.exe"
+"%LOCALAPPDATA%\Programs\AutoHotkey\Compiler\Ahk2Exe.exe" /in "QA_POS_Automation_Macro.ahk" /out "QA_POS_Automation_Macro_v2.6.exe" /base "%LOCALAPPDATA%\Programs\AutoHotkey\v2\AutoHotkey64.exe"
 ```
 
 ### Arquitectura 32 bits:
 ```cmd
-"%LOCALAPPDATA%\Programs\AutoHotkey\Compiler\Ahk2Exe.exe" /in "QA_POS_Automation_Macro.ahk" /out "QA_POS_Automation_Macro_v2.5_x86.exe" /base "%LOCALAPPDATA%\Programs\AutoHotkey\v2\AutoHotkey32.exe"
+"%LOCALAPPDATA%\Programs\AutoHotkey\Compiler\Ahk2Exe.exe" /in "QA_POS_Automation_Macro.ahk" /out "QA_POS_Automation_Macro_v2.6_x86.exe" /base "%LOCALAPPDATA%\Programs\AutoHotkey\v2\AutoHotkey32.exe"
 ```
 
 ---

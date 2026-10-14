@@ -2,7 +2,7 @@
 
 Suite portable de automatizacion de transacciones para terminales de punto de venta (POS) basada en emulacion de teclado de baja latencia con interfaz Windows Vista Aero Glass.
 
-[![Release](https://img.shields.io/badge/Release-v2.5.0-0078D7.svg?style=flat-square)](https://github.com/EfrainSN/QA-POS-Automation-Macro/releases)
+[![Release](https://img.shields.io/badge/Release-v2.6.0-0078D7.svg?style=flat-square)](https://github.com/EfrainSN/QA-POS-Automation-Macro/releases)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20POSReady%20%7C%2010%20%7C%2011-00a2ed.svg?style=flat-square)](https://github.com/EfrainSN/QA-POS-Automation-Macro)
 [![Language](https://img.shields.io/badge/Language-AutoHotkey%20v2.0-334455.svg?style=flat-square)](https://www.autohotkey.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
@@ -13,7 +13,23 @@ Suite portable de automatizacion de transacciones para terminales de punto de ve
 
 QA POS Automation Macro es un motor de automatizacion disenado especificamente para entornos de cajas de venta minorista y terminales transaccionales (POS). A diferencia de las soluciones basadas en control remoto, streaming de video o reconocimiento optico, la aplicacion se ejecuta de forma nativa dentro de la sesion del sistema operativo del terminal, eliminando retardos de red y garantizando una dispersion temporal deterministica.
 
-### 1.1 Subsistema de Captura y Temporizador de Grabacion
+### 1.1 Subsistema Centinela Xstore (Watchdog & Auditoria en Tiempo Real)
+
+A partir de la version 2.6.0, la suite incorpora un subsistema Centinela disenado para monitorizar el flujo operativo de Oracle Retail Xstore en tiempo real:
+- **Lectura No Bloqueante e Incremental:** Abre el archivo de registro `xstore.log` en modo de lectura compartida (`r-d`), anclando el puntero al final del archivo (`Seek(0, 2)`) al iniciar el lote. De este modo, solo procesa las lineas generadas durante la ejecucion de la macro, garantizando cero impacto en el rendimiento de la CPU del terminal POS.
+- **Deteccion Precisa de Eventos OPCHAIN_FLOW:** Reconoce de manera inmediata ventanas modales y bloqueos criticos del flujo de Xstore:
+  - `[Prompt] ERROR_WITH_INFO`: Articulo o SKU no registrado en catalogo (Item Not On File).
+  - `[Prompt] VALIDATION_ERROR_MESSAGE`: Reglas de monto de pago o validaciones de cobro rechazadas.
+  - `[Prompt] FORM_VALIDATION_FAILED` / `FORM_VALIDATION_FAILED_ALT`: Formularios de caja con campos obligatorios vacios.
+  - `[Prompt] PRINTER_ERROR`: Falla de conexion o fin de papel en la impresora fiscal.
+  - `[Prompt] WORKSTATION_IS_CLOSED_NO_ACCESS`: Caja cerrada sin turno operativo activo.
+  - `X[Rule]`: Reglas de negocio internas rechazadas por la cadena de operaciones.
+- **Filtro Anti Falsos Positivos:** Diseñado y validado sobre trazas reales de produccion para ignorar los registros normales de depuracion etiquetados como `ERROR` por librerias de integracion de precios o facturacion electronica (Siman/VTOL/FEL), deteniendo el flujo unica y exclusivamente ante verdaderas interrupciones funcionales.
+- **Auto-Parada y Proteccion del POS:** Al detectar cualquier popup de error o regla rechazada, el Centinela interrumpe inmediatamente el envio de teclas subsecuentes para evitar desfasar los menus de la caja registradora.
+- **Captura de Pantalla Forense Automatica:** En el instante exacto del fallo, el motor invoca la API nativa de Windows GDI+ para tomar una captura de pantalla completa en formato `.png` de alta resolucion, almacenandola de forma ordenada en `Reports/Screenshots/Error_Ciclo_<N>_<timestamp>.png`.
+- **Ruta Configurable y Autodeteccion:** Detecta automaticamente la ruta estandar `C:\xstore\log\xstore.log` y ofrece un boton dedicado `Ruta Log...` para asociar archivos de registro en otras unidades o entornos de prueba.
+
+### 1.2 Subsistema de Captura y Temporizador de Grabacion
  
 La captura de secuencias se implementa mediante la API `InputHook` de bajo nivel de Windows con parametros `V L0` (Visible, Longitud Ilimitada):
 - **Temporizador Regresivo de 3 Segundos:** Al iniciar la grabacion, el sistema activa un conteo regresivo de 3 segundos con avisos sonoros ascendentes y un banner flotante en pantalla, otorgando el tiempo necesario para posicionarse en la terminal POS antes de capturar eventos.
@@ -22,13 +38,13 @@ La captura de secuencias se implementa mediante la API `InputHook` de bajo nivel
 - **Normalizacion de Codigos Virtuales:** Traduce codigos de teclas fisicas (`VK_RETURN`, `VK_ESCAPE`, `VK_TAB`, `VK_BACK`, `VK_SPACE`, teclas de navegacion y teclas de funcion `VK_F1` a `VK_F12`) en secuencias semanticas formalizadas `{Key}` compatibles con el sintetizador de eventos.
 - **Calculo Dinamico de Deltas:** Mide la diferencia en milisegundos (`A_TickCount`) entre pulsaciones sucesivas para generar sentencias `Sleep, <delta>` que reproducen fielmente los tiempos de respuesta requeridos por las bases de datos locales y servicios fiscales del POS.
  
-### 1.2 Subsistema de Reproduccion y Despacho de Eventos
+### 1.3 Subsistema de Reproduccion y Despacho de Eventos
  
 El motor de reproduccion analiza secuencialmente el archivo de macro interpretando dos directivas primarias:
 - `Sleep, <ms>`: Aplica una espera fraccionada mediante un bucle de retardo divisible de 25 ms, permitiendo responder inmediatamente a peticiones de pausa o interrupcion de emergencia.
 - `Send, <payload>`: Despacha caracteres y codigos virtuales mediante `SendEvent` con una configuracion fija de `SetKeyDelay(25, 25)` (25 ms de retardo entre pulsaciones y 25 ms de duracion de pulsacion), parametro calibrado para evitar omisiones de caracteres en hardware de teclado fiscal o escaneres emulados.
  
-### 1.3 Gestion de Foco y Vinculacion Inteligente de Ventana
+### 1.4 Gestion de Foco y Vinculacion Inteligente de Ventana
  
 El sistema gestiona la sincronizacion con la terminal POS mediante inspeccion exhaustiva de ventanas Win32 (`SetTitleMatchMode(2)` y `SetTitleMatchMode("Slow")`):
 1. **Auto-Deteccion en Inicio y Vinculacion Rapida:** Al arrancar o pulsar "Vincular", el sistema busca procesos abiertos que contengan "Xstore", "POS", "Oracle Retail" o "Point of Service", vinculando y activando la terminal de inmediato.
@@ -91,6 +107,7 @@ A partir de la version 2.5.0, la aplicacion incluye un modulo de actualizacion y
 
 El software incorpora manejadores de interrupcion de hilos en caliente para salvaguardar la integridad de la operacion en caja:
 
+- **Centinela Xstore:** Vigilancia permanente por sondeo de log con parada automatica ante fallos de caja o reglas de negocio violadas.
 - **Ctrl + P (Pausa / Reanudacion):** Suspende temporalmente el envio de teclas sin alterar el contador de ciclos ni cancelar el reporte de auditoria. Al reanudar, vuelve a enfocar la ventana del POS y retoma exactamente en la linea siguiente.
 - **Ctrl + M (Kill Switch de Emergencia):** Cancela de inmediato el hilo de ejecucion, libera los hooks de teclado y consolida el reporte CSV con las transacciones completadas hasta el momento.
 - **Preservacion de Teclas de Funcion:** Los hotkeys globales estan limitados exclusivamente a combinaciones con tecla Control, dejando completamente libres las teclas `F1` a `F12` utilizadas por los sistemas POS.
@@ -110,7 +127,7 @@ Cada sesion genera de manera automatica un archivo de auditoria en el directorio
 | `Fecha_Fin` | String (ISO) | Marca de tiempo de culminacion (YYYY-MM-DD HH:MM:SS) |
 | `Duracion_Seg` | Decimal | Duracion total del ciclo expresada en segundos |
 | `Duracion_Ms` | Entero | Duracion exacta en milisegundos |
-| `Estado` | Enum | Resultado de la transaccion (`COMPLETADO` o `INTERRUMPIDO`) |
+| `Estado` | Enum | Resultado de la transaccion (`COMPLETADO`, `INTERRUMPIDO` o `FALLO_CENTINELA (<Detalle>)`) |
 | `Macro` | String | Nombre del archivo de macro reproducido |
 
 ---
@@ -130,8 +147,8 @@ build.bat
 ```
 
 Este script detecta la version declarada en el codigo fuente y genera automaticamente:
-- `QA_POS_Automation_Macro_v2.5.exe` (Binario de 64 bits para Windows 10/11)
-- `QA_POS_Automation_Macro_v2.5_x86.exe` (Binario de 32 bits para Windows POSReady y hardware legacy)
+- `QA_POS_Automation_Macro_v2.6.exe` (Binario de 64 bits para Windows 10/11)
+- `QA_POS_Automation_Macro_v2.6_x86.exe` (Binario de 32 bits para Windows POSReady y hardware legacy)
 
 ---
 
@@ -148,6 +165,7 @@ QA-POS-Automation-Macro/
 ├── Macros/                       # Directorio de almacenamiento de macros (.txt)
 │   └── Macro_POS_Local.txt
 ├── Reports/                      # Directorio de reportes de ejecucion (.csv)
+│   └── Screenshots/              # Directorio de capturas automaticas ante fallos (.png)
 ├── .gitignore                    # Filtros de exclusion para control de versiones
 └── LICENSE                       # Licencia de software MIT
 ```

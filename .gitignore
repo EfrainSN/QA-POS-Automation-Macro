@@ -5,6 +5,7 @@
 
 # Reportes locales y archivos temporales
 Reports/*.csv
+Reports/Screenshots/*.png
 *.log
 .system_generated/
 scratch/
