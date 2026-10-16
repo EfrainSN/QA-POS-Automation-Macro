@@ -1,6 +1,6 @@
 # Guia de Operacion - QA POS Automation Macro v2.6
 
-Herramienta portable de automatizacion de transacciones para terminales de punto de venta (POS) basada en macros nativas de baja latencia con Centinela Xstore, editor interactivo de pasos y gestor de actualizaciones.
+Herramienta portable de automatizacion de transacciones para terminales de punto de venta (POS) basada en macros nativas de baja latencia con Centinela POS (Watchdog), editor interactivo de pasos y gestor de actualizaciones.
 
 ---
 
@@ -11,7 +11,7 @@ QA POS Automation Macro es una aplicacion disenada para automatizar secuencias r
 Principales capacidades tecnicas:
 - Latencia menor a 5 ms por instruccion mediante llamadas directas a la API de entrada de Windows.
 - Prevencion de perdida de paquetes de teclado comun en soluciones de streaming remoto.
-- **Centinela Xstore (Watchdog Activo):** Monitoreo continuo de `xstore.log` para detener automaticamente la ejecucion ante errores de caja (SKU no registrado, validaciones de cobro rechazadas o caja cerrada), capturando la pantalla del POS en `.png` al instante e ignorando avisos de impresion para facilitar pruebas en terminales sin hardware fiscal.
+- **Centinela POS (Watchdog Activo):** Monitoreo continuo del archivo de log transaccional para detener automaticamente la ejecucion ante errores de caja (SKU no registrado, validaciones de cobro rechazadas o caja cerrada), capturando la pantalla del POS en `.png` al instante para facilitar pruebas seguras y desatendidas.
 - Interfaz grafica Windows Vista Aero Glass optimizada para paneles tactiles resistivos y capacitivos de terminales POS.
 - Editor visual interactivo de pasos para modificar, sustituir y reordenar SKUs sin necesidad de editar archivos de texto.
 - Gestor integrado de actualizaciones para monitorear nuevas versiones y mejoras publicadas en GitHub Releases.
@@ -40,7 +40,7 @@ Principales capacidades tecnicas:
 3. La aplicacion inicializara automaticamente los directorios `Macros/`, `Reports/` y `Reports/Screenshots/` si no existen.
 
 ### Paso 2: Vinculacion Inteligente de Foco
-1. Al arrancar la aplicacion, el sistema busca automaticamente ventanas activas que coincidan con terminales POS ("Xstore", "POS", "Oracle Retail", "Point of Service") y las pre-vincula en el campo de texto.
+1. Al arrancar la aplicacion, el sistema busca automaticamente ventanas activas que coincidan con terminales POS ("POS", "Point of Sale", "Point of Service", "Caja") y las pre-vincula en el campo de texto.
 2. Al presionar el boton "Vincular":
    - Si la terminal POS ya esta abierta en el sistema, se vincula y enfoca de inmediato con confirmacion sonora.
    - Si no se detecta automaticamente, la ventana pasa a modo translucido y muestra un aviso flotante. Haga clic sobre cualquier parte de la ventana de su caja POS para vincularla (presione Escape si desea cancelar).
@@ -122,4 +122,4 @@ Cada sesion genera un archivo CSV estructurado dentro del directorio `Reports/` 
 - `Estado`: Indicador de estado (`COMPLETADO`, `INTERRUMPIDO` o `FALLO_CENTINELA (<Detalle>)`).
 - `Macro`: Nombre del archivo de macro reproducido.
 
-En caso de activacion del Centinela Xstore, el archivo de imagen correspondiente se guardara automaticamente en `Reports/Screenshots/Error_Ciclo_<N>_<timestamp>.png` para su inspeccion forense.
+En caso de activacion del Centinela POS, el archivo de imagen correspondiente se guardara automaticamente en `Reports/Screenshots/Error_Ciclo_<N>_<timestamp>.png` para su inspeccion forense.

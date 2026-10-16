@@ -13,21 +13,21 @@ Suite portable de automatizacion de transacciones para terminales de punto de ve
 
 QA POS Automation Macro es un motor de automatizacion disenado especificamente para entornos de cajas de venta minorista y terminales transaccionales (POS). A diferencia de las soluciones basadas en control remoto, streaming de video o reconocimiento optico, la aplicacion se ejecuta de forma nativa dentro de la sesion del sistema operativo del terminal, eliminando retardos de red y garantizando una dispersion temporal deterministica.
 
-### 1.1 Subsistema Centinela Xstore (Watchdog & Auditoria en Tiempo Real)
+### 1.1 Subsistema Centinela POS (Watchdog de Logs & Auditoria en Tiempo Real)
 
-A partir de la version 2.6.0, la suite incorpora un subsistema Centinela disenado para monitorizar el flujo operativo de Oracle Retail Xstore en tiempo real:
-- **Lectura No Bloqueante e Incremental:** Abre el archivo de registro `xstore.log` en modo de lectura compartida (`r-d`), anclando el puntero al final del archivo (`Seek(0, 2)`) al iniciar el lote. De este modo, solo procesa las lineas generadas durante la ejecucion de la macro, garantizando cero impacto en el rendimiento de la CPU del terminal POS.
-- **Deteccion Precisa de Eventos OPCHAIN_FLOW:** Reconoce de manera inmediata ventanas modales y bloqueos criticos del flujo de Xstore:
-  - `[Prompt] ERROR_WITH_INFO`: Articulo o SKU no registrado en catalogo (Item Not On File).
-  - `[Prompt] VALIDATION_ERROR_MESSAGE`: Reglas de monto de pago o validaciones de cobro rechazadas.
-  - `[Prompt] FORM_VALIDATION_FAILED` / `FORM_VALIDATION_FAILED_ALT`: Formularios de caja con campos obligatorios vacios.
-  - `[Prompt] WORKSTATION_IS_CLOSED_NO_ACCESS`: Caja cerrada sin turno operativo activo.
-  - `X[Rule]`: Reglas de negocio internas rechazadas por la cadena de operaciones.
-  - *(Nota: Los eventos de impresora fiscal `PRINTER_ERROR` se omiten deliberadamente para permitir pruebas continuas en cajas de QA sin periféricos de impresión conectados).*
-- **Filtro Anti Falsos Positivos:** Diseñado y validado sobre trazas reales de produccion para ignorar los registros normales de depuracion etiquetados como `ERROR` por librerias de integracion de precios o facturacion electronica (Siman/VTOL/FEL), deteniendo el flujo unica y exclusivamente ante verdaderas interrupciones funcionales.
-- **Auto-Parada y Proteccion del POS:** Al detectar cualquier popup de error o regla rechazada, el Centinela interrumpe inmediatamente el envio de teclas subsecuentes para evitar desfasar los menus de la caja registradora.
+A partir de la version 2.6.0, la suite incorpora un subsistema Centinela disenado para monitorizar el flujo operativo y los registros de eventos de la aplicacion POS en tiempo real:
+- **Lectura No Bloqueante e Incremental:** Abre el archivo de registro o log transaccional en modo de lectura compartida (`r-d`), anclando el puntero al final del archivo (`Seek(0, 2)`) al iniciar el lote. De este modo, solo procesa las lineas generadas durante la ejecucion de la macro, garantizando cero impacto en el rendimiento de la CPU del terminal POS.
+- **Deteccion Precisa de Eventos y Bloqueos:** Reconoce de manera inmediata ventanas modales, excepciones y bloqueos criticos del flujo transaccional:
+  - Articulos o SKUs no registrados en catalogo (Item Not On File).
+  - Reglas de validacion de importes o transacciones de cobro rechazadas.
+  - Formularios de operacion con campos obligatorios vacios o incompletos.
+  - Terminal o estacion de trabajo cerrada sin turno operativo habilitado.
+  - Reglas de negocio internas rechazadas por la logica transaccional del sistema.
+  - *(Nota: Los avisos de perifericos secundarios o impresora se pueden omitir deliberadamente para facilitar pruebas continuas en terminales de QA sin hardware fiscal conectado).*
+- **Filtro Anti Falsos Positivos:** Disenado y calibrado para ignorar advertencias rutinarias de depuracion en librerias secundarias, deteniendo el flujo unica y exclusivamente ante verdaderas interrupciones funcionales.
+- **Auto-Parada y Proteccion del POS:** Al detectar cualquier popup de error, excepcion o regla rechazada, el Centinela interrumpe inmediatamente el envio de teclas subsecuentes para evitar desfasar los menus o pantallas de la caja registradora.
 - **Captura de Pantalla Forense Automatica:** En el instante exacto del fallo, el motor invoca la API nativa de Windows GDI+ para tomar una captura de pantalla completa en formato `.png` de alta resolucion, almacenandola de forma ordenada en `Reports/Screenshots/Error_Ciclo_<N>_<timestamp>.png`.
-- **Ruta Configurable y Autodeteccion:** Detecta automaticamente la ruta estandar `C:\xstore\log\xstore.log` y ofrece un boton dedicado `Ruta Log...` para asociar archivos de registro en otras unidades o entornos de prueba.
+- **Ruta de Registro Configurable:** Ofrece un selector dedicado (`Ruta Log...`) para vincular dinamicamente el archivo de registro de cualquier aplicacion POS o terminal de pruebas.
 
 ### 1.2 Subsistema de Captura y Temporizador de Grabacion
  
@@ -47,7 +47,7 @@ El motor de reproduccion analiza secuencialmente el archivo de macro interpretan
 ### 1.4 Gestion de Foco y Vinculacion Inteligente de Ventana
  
 El sistema gestiona la sincronizacion con la terminal POS mediante inspeccion exhaustiva de ventanas Win32 (`SetTitleMatchMode(2)` y `SetTitleMatchMode("Slow")`):
-1. **Auto-Deteccion en Inicio y Vinculacion Rapida:** Al arrancar o pulsar "Vincular", el sistema busca procesos abiertos que contengan "Xstore", "POS", "Oracle Retail" o "Point of Service", vinculando y activando la terminal de inmediato.
+1. **Auto-Deteccion en Inicio y Vinculacion Rapida:** Al arrancar o pulsar "Vincular", el sistema busca procesos abiertos que contengan "POS", "Point of Sale", "Point of Service" o "Caja", vinculando y activando la terminal de inmediato.
 2. **Modo Interactivo Asistido:** Si la terminal utiliza un titulo no estandar, el sistema activa una guia flotante y modo translucido para capturar la ventana exacta al hacer clic sobre ella (cancelable mediante la tecla Escape).
 3. **Mantenimiento del Foco en Reproduccion:** Antes de cada transaccion, el motor verifica la existencia de la ventana mediante `WinExist()`, invoca `WinActivate()` y valida la sincronizacion con `WinWaitActive()`, evitando la inyeccion de teclas fuera de la caja registradora.
  
@@ -107,7 +107,7 @@ A partir de la version 2.5.0, la aplicacion incluye un modulo de actualizacion y
 
 El software incorpora manejadores de interrupcion de hilos en caliente para salvaguardar la integridad de la operacion en caja:
 
-- **Centinela Xstore:** Vigilancia permanente por sondeo de log con parada automatica ante fallos de caja o reglas de negocio violadas.
+- **Centinela POS (Watchdog de Logs):** Vigilancia permanente por sondeo de log con parada automatica ante fallos de caja o reglas de negocio violadas.
 - **Ctrl + P (Pausa / Reanudacion):** Suspende temporalmente el envio de teclas sin alterar el contador de ciclos ni cancelar el reporte de auditoria. Al reanudar, vuelve a enfocar la ventana del POS y retoma exactamente en la linea siguiente.
 - **Ctrl + M (Kill Switch de Emergencia):** Cancela de inmediato el hilo de ejecucion, libera los hooks de teclado y consolida el reporte CSV con las transacciones completadas hasta el momento.
 - **Preservacion de Teclas de Funcion:** Los hotkeys globales estan limitados exclusivamente a combinaciones con tecla Control, dejando completamente libres las teclas `F1` a `F12` utilizadas por los sistemas POS.
