@@ -3,9 +3,19 @@
 *.rar
 *.zip
 
-# Reportes locales y archivos temporales
+# Reportes locales, tickets, logs y configuracion de estacion
 Reports/*.csv
+Reports/*.html
 Reports/Screenshots/*.png
+Reports/Tickets/*.html
+Registro_Transacciones_*.csv
+Reporte_Dashboard_*.html
 *.log
+PosLog.xml
+poslog.xml
+config.ini
+Macros/*.txt
+Transaccion_*.txt
+CredisimanFormaDePago.txt
 .system_generated/
 scratch/

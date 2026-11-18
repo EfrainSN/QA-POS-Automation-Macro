@@ -1,8 +1,8 @@
 # QA POS Automation Macro
 
-Suite portable de automatizacion de transacciones para terminales de punto de venta (POS) basada en emulacion de teclado de baja latencia con interfaz Windows Vista Aero Glass.
+Suite portable de automatizacion deterministica de transacciones para terminales de punto de venta (POS / Oracle Retail Xstore) con sincronizacion por eventos de log, interfaz Windows Vista Aero Glass, Mini-HUD en vivo y Dashboard HTML Forense.
 
-[![Release](https://img.shields.io/badge/Release-v2.6.0-0078D7.svg?style=flat-square)](https://github.com/EfrainSN/QA-POS-Automation-Macro/releases)
+[![Release](https://img.shields.io/badge/Release-v2.8.0-0078D7.svg?style=flat-square)](https://github.com/EfrainSN/QA-POS-Automation-Macro/releases)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20POSReady%20%7C%2010%20%7C%2011-00a2ed.svg?style=flat-square)](https://github.com/EfrainSN/QA-POS-Automation-Macro)
 [![Language](https://img.shields.io/badge/Language-AutoHotkey%20v2.0-334455.svg?style=flat-square)](https://www.autohotkey.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
@@ -13,9 +13,9 @@ Suite portable de automatizacion de transacciones para terminales de punto de ve
 
 QA POS Automation Macro es un motor de automatizacion disenado especificamente para entornos de cajas de venta minorista y terminales transaccionales (POS). A diferencia de las soluciones basadas en control remoto, streaming de video o reconocimiento optico, la aplicacion se ejecuta de forma nativa dentro de la sesion del sistema operativo del terminal, eliminando retardos de red y garantizando una dispersion temporal deterministica.
 
-### 1.1 Subsistema Centinela POS (Watchdog de Logs & Auditoria en Tiempo Real)
+### 1.1 Subsistema Centinela POS y Auto-Recuperacion en Lotes (Self-Healing)
 
-A partir de la version 2.6.0, la suite incorpora un subsistema Centinela disenado para monitorizar el flujo operativo y los registros de eventos de la aplicacion POS en tiempo real:
+La suite incorpora un subsistema Centinela disenado para monitorizar el flujo operativo y los registros de eventos de la aplicacion POS en tiempo real (incluso cada 150 ms dentro de pausas largas):
 - **Lectura No Bloqueante e Incremental:** Abre el archivo de registro o log transaccional en modo de lectura compartida (`r-d`), anclando el puntero al final del archivo (`Seek(0, 2)`) al iniciar el lote. De este modo, solo procesa las lineas generadas durante la ejecucion de la macro, garantizando cero impacto en el rendimiento de la CPU del terminal POS.
 - **Deteccion Precisa de Eventos y Bloqueos:** Reconoce de manera inmediata ventanas modales, excepciones y bloqueos criticos del flujo transaccional:
   - Articulos o SKUs no registrados en catalogo (Item Not On File).
@@ -24,32 +24,37 @@ A partir de la version 2.6.0, la suite incorpora un subsistema Centinela disenad
   - Terminal o estacion de trabajo cerrada sin turno operativo habilitado.
   - Reglas de negocio internas rechazadas por la logica transaccional del sistema.
   - *(Nota: Los avisos de perifericos secundarios o impresora se pueden omitir deliberadamente para facilitar pruebas continuas en terminales de QA sin hardware fiscal conectado).*
-- **Filtro Anti Falsos Positivos:** Disenado y calibrado para ignorar advertencias rutinarias de depuracion en librerias secundarias, deteniendo el flujo unica y exclusivamente ante verdaderas interrupciones funcionales.
-- **Auto-Parada y Proteccion del POS:** Al detectar cualquier popup de error, excepcion o regla rechazada, el Centinela interrumpe inmediatamente el envio de teclas subsecuentes para evitar desfasar los menus o pantallas de la caja registradora.
-- **Captura de Pantalla Forense Automatica:** En el instante exacto del fallo, el motor invoca la API nativa de Windows GDI+ para tomar una captura de pantalla completa en formato `.png` de alta resolucion, almacenandola de forma ordenada en `Reports/Screenshots/Error_Ciclo_<N>_<timestamp>.png`.
-- **Ruta de Registro Configurable:** Ofrece un selector dedicado (`Ruta Log...`) para vincular dinamicamente el archivo de registro de cualquier aplicacion POS o terminal de pruebas.
+- **Auto-Recuperacion en Lotes (Self-Healing):** Permite habilitar la opcion `Auto-Recuperar en Lote`, mediante la cual ante un popup de error en una corrida masiva, el motor captura la evidencia forense, cierra automaticamente el modal de error (`{Enter}` / `{Escape}`), re-ancla el puntero del log y continua con el siguiente ciclo sin abortar el lote completo.
+- **Captura de Pantalla y Fragmento Forense Automatico:** En el instante exacto del fallo, el motor invoca la API nativa de Windows GDI+ para tomar una captura `.png` (`Reports/Screenshots/Error_Ciclo_<N>_<timestamp>.png`) y extrae el bloque exacto de `xstore.log` (`OPCHAIN_FLOW`) para incrustarlo en el **Dashboard HTML Forense**.
 
-### 1.2 Subsistema de Captura y Temporizador de Grabacion
+### 1.2 Subsistema de Captura Inteligente (UIA v2 + Etiquetado Xstore + Coordenadas Proporcionales)
  
-La captura de secuencias se implementa mediante la API `InputHook` de bajo nivel de Windows con parametros `V L0` (Visible, Longitud Ilimitada):
-- **Temporizador Regresivo de 3 Segundos:** Al iniciar la grabacion, el sistema activa un conteo regresivo de 3 segundos con avisos sonoros ascendentes y un banner flotante en pantalla, otorgando el tiempo necesario para posicionarse en la terminal POS antes de capturar eventos.
+La captura de secuencias se implementa mediante la API `InputHook` de bajo nivel combinada con ganchos reactivos de eventos de ratón (`~*LButton`, `~*RButton`), la librería **Microsoft UI Automation v2 (`UIA-v2`)** y lectura en vivo de `xstore.log`:
+- **Identificacion Real de Botones en Java Swing (`XstoreAction`):** Cuando el operador hace clic en Xstore, el grabador inspecciona `xstore.log` para capturar la accion de negocio exacta (`[Action] <click> -> NombreBoton [CODIGO]`) y etiquetar automaticamente el paso:
+  `UIA_Click, Name="...", Fallback=678, 902, WinSize=1920x1080, XstoreAction="Caja registradora [REGISTER_LOGIN]"`
+- **Sincronizacion por Eventos del Log (`WaitPrompt`):** Durante la grabacion, detecta automaticamente que `[Prompt]` o `[Form]` mostro Xstore antes de cada accion y lo asocia a la pausa (`Sleep, 3400, WaitPrompt="LOGIN_USER_ID"`).
+- **Coordenadas Proporcionales (`WinSize=WxH`):** Registra las dimensiones de la ventana del POS junto con cada clic y escala proporcionalmente las coordenadas `(X, Y)` si la macro se reproduce en una terminal con distinta resolucion de pantalla.
+- **Mini-HUD Flotante en Vivo (`WS_EX_TRANSPARENT`):** Despliega una barra superior siempre visible sobre Xstore a pantalla completa que muestra en tiempo real el ciclo, el paso en curso y el boton o SKU procesado sin robar foco ni bloquear clics.
+- **HUD OSD Regresivo de 3 Segundos:** Al iniciar la grabacion, el sistema despliega un banner flotante centrado de alto impacto visual (HUD estilo Aero Glass `#123859` con borde `#5AD1FF`, sin robar foco `NoActivate`) que realiza una cuenta regresiva 3... 2... 1... acompañada de avisos sonoros ascendentes, garantizando que el operador tenga tiempo para posicionarse en la terminal POS antes de capturar eventos.
 - **Modo Translucido Aero Glass:** Durante la grabacion, la suite reduce su opacidad al 58% (`WinSetTransparent(150)`), permitiendo al operador observar la aplicacion POS debajo de la ventana. Al finalizar o cancelar, la opacidad nativa se restablece al 100%.
-- **Modo Pass-Through:** No intercepta ni bloquea las pulsaciones dirigidas al proceso de la aplicacion POS durante la grabacion.
-- **Normalizacion de Codigos Virtuales:** Traduce codigos de teclas fisicas (`VK_RETURN`, `VK_ESCAPE`, `VK_TAB`, `VK_BACK`, `VK_SPACE`, teclas de navegacion y teclas de funcion `VK_F1` a `VK_F12`) en secuencias semanticas formalizadas `{Key}` compatibles con el sintetizador de eventos.
-- **Calculo Dinamico de Deltas:** Mide la diferencia en milisegundos (`A_TickCount`) entre pulsaciones sucesivas para generar sentencias `Sleep, <delta>` que reproducen fielmente los tiempos de respuesta requeridos por las bases de datos locales y servicios fiscales del POS.
+- **Modo Pass-Through:** No intercepta ni bloquea las pulsaciones ni clics dirigidos al proceso de la aplicacion POS durante la grabacion.
+- **Calculo Dinamico de Deltas:** Mide la diferencia en milisegundos (`A_TickCount`) entre pulsaciones y clics sucesivos para generar sentencias `Sleep, <delta>` que reproducen fielmente los tiempos de respuesta requeridos por las bases de datos locales y servicios fiscales del POS.
  
-### 1.3 Subsistema de Reproduccion y Despacho de Eventos
+### 1.3 Subsistema de Reproduccion Deterministica y Despacho de Eventos
  
-El motor de reproduccion analiza secuencialmente el archivo de macro interpretando dos directivas primarias:
-- `Sleep, <ms>`: Aplica una espera fraccionada mediante un bucle de retardo divisible de 25 ms, permitiendo responder inmediatamente a peticiones de pausa o interrupcion de emergencia.
-- `Send, <payload>`: Despacha caracteres y codigos virtuales mediante `SendEvent` con una configuracion fija de `SetKeyDelay(25, 25)` (25 ms de retardo entre pulsaciones y 25 ms de duracion de pulsacion), parametro calibrado para evitar omisiones de caracteres en hardware de teclado fiscal o escaneres emulados.
+El motor de reproduccion analiza secuencialmente el archivo de macro interpretando directivas enriquecidas:
+- `Sleep, <ms>, WaitPrompt="<PROMPT>"` y `WaitPrompt, <PROMPT>, Timeout=<ms>`: Si la sincronizacion inteligente con log esta activa, monitorea `xstore.log` en tiempo real para avanzar tan pronto Xstore cargue el prompt esperado, o extender el tiempo de espera automaticamente si la base de datos o red tarda mas de lo habitual.
+- `Send, <payload>`: Despacha caracteres y codigos virtuales mediante `SendEvent` con una configuracion fija de `SetKeyDelay(25, 25)`.
+- `UIA_Click, ..., Fallback=X, Y, WinSize=WxH, XstoreAction="..."`: Localiza el elemento por UIA o aplica escalado proporcional de coordenadas `(X, Y)`. Si el paso incluye `XstoreAction`, verifica en `xstore.log` que el clic haya generado actividad en `OPCHAIN_FLOW` y reintenta automaticamente el clic si Java Swing omitio el primer pulso.
+- `MouseClick, <Boton>, <X>, <Y>`: Posiciona instantáneamente el cursor del ratón y despacha clics seguros con escalado proporcional.
  
-### 1.4 Gestion de Foco y Vinculacion Inteligente de Ventana
+### 1.4 Gestion de Foco, Anclaje y Guardian de Ventana en Caliente
  
 El sistema gestiona la sincronizacion con la terminal POS mediante inspeccion exhaustiva de ventanas Win32 (`SetTitleMatchMode(2)` y `SetTitleMatchMode("Slow")`):
-1. **Auto-Deteccion en Inicio y Vinculacion Rapida:** Al arrancar o pulsar "Vincular", el sistema busca procesos abiertos que contengan "POS", "Point of Sale", "Point of Service" o "Caja", vinculando y activando la terminal de inmediato.
-2. **Modo Interactivo Asistido:** Si la terminal utiliza un titulo no estandar, el sistema activa una guia flotante y modo translucido para capturar la ventana exacta al hacer clic sobre ella (cancelable mediante la tecla Escape).
-3. **Mantenimiento del Foco en Reproduccion:** Antes de cada transaccion, el motor verifica la existencia de la ventana mediante `WinExist()`, invoca `WinActivate()` y valida la sincronizacion con `WinWaitActive()`, evitando la inyeccion de teclas fuera de la caja registradora.
+1. **Auto-Deteccion y Anclaje Previo (Pre-Flight Check):** Al iniciar la ejecucion, valida la existencia de la ventana de Xstore. La restaura si esta minimizada, la trae al frente de forma forzada y confirma el foco estricto mediante `WinWaitActive()`. Si la ventana no existe, interrumpe el inicio con una alerta de seguridad para evitar disparar teclas al aire.
+2. **Cuenta Regresiva de Despacho (3 Segundos con HUD):** Muestra un banner visual flotante en pantalla ("XSTORE ANCLADO Y VALIDADO") con cuenta regresiva de 3 segundos, permitiendo al operador confirmar visualmente que el POS esta listo y soltar el teclado y raton.
+3. **Guardian de Foco en Caliente:** Durante el despacho de cada instruccion de la macro, el motor verifica que la ventana activa siga siendo la terminal de Xstore anclada. Si el usuario hace clic afuera accidentalmente o emerge una ventana emergente del sistema operativo, el motor pausa de forma automatica e inmediata la ejecucion para proteger la transaccion y no escribir en la aplicacion equivocada.
+4. **Modo Interactivo Asistido:** Si la terminal utiliza un titulo no estandar, el sistema activa una guia flotante y modo translucido para capturar la ventana exacta al hacer clic sobre ella (cancelable mediante Escape).
  
 ---
  
@@ -147,27 +152,43 @@ build.bat
 ```
 
 Este script detecta la version declarada en el codigo fuente y genera automaticamente:
-- `QA_POS_Automation_Macro_v2.6.exe` (Binario de 64 bits para Windows 10/11)
-- `QA_POS_Automation_Macro_v2.6_x86.exe` (Binario de 32 bits para Windows POSReady y hardware legacy)
+- `QA_POS_Automation_Macro_v2.8.exe` (Binario de 64 bits para Windows 10/11)
+- `QA_POS_Automation_Macro_v2.8_x86.exe` (Binario de 32 bits para Windows POSReady y hardware legacy)
+- `QA_POS_Automation_Macro_v2.8_Portable.zip` (Paquete portable completo listo para distribucion)
 
 ---
 
-## 9. Estructura del Repositorio
+## 9. Estructura Modular del Repositorio (v2.8+)
 
 ```text
 QA-POS-Automation-Macro/
-├── QA_POS_Automation_Macro.ahk   # Codigo fuente principal (AutoHotkey v2)
-├── build.bat                     # Script de compilacion automatica x64 y x86
-├── COMPILATION_GUIDE.md          # Manual tecnico del proceso de compilacion
-├── GUIA_OPERADOR_POS.md          # Guia de referencia para operadores de terminal
-├── README.md                     # Documentacion tecnica del sistema
-├── Macro_POS_Local.txt           # Macro base de demostracion
+├── QA_POS_Automation_Macro.ahk   # Punto de entrada principal (~60 lineas, #Includes)
+├── build.bat                     # Empaqueta todos los modulos en un solo .exe autonomo
+├── config.ini                    # Configuracion persistente local
+├── Lib/
+│   └── UIA.ahk                   # Libreria Microsoft UI Automation v2
+├── src/
+│   ├── Core/
+│   │   ├── Globals.ahk           # Estado global, constantes y referencias UI
+│   │   ├── ConfigManager.ahk     # Gestion de directorios y persistencia config.ini
+│   │   └── Updater.ahk           # Gestor de actualizaciones via GitHub Releases API
+│   ├── POS/
+│   │   ├── PosWindowManager.ahk  # Deteccion, anclaje y filtrado de ventana Xstore POS
+│   │   ├── XstoreSentinel.ahk    # Subsistema Centinela y capturas GDI+ (.png)
+│   │   └── XstoreLogSync.ahk     # Sincronizacion WaitPrompt y captura de [Action]
+│   ├── Engine/
+│   │   ├── MacroRecorder.ahk     # Grabador en directo + Deteccion Copiar/Pegar (Portapapeles)
+│   │   ├── MacroPlayer.ahk       # Reproductor deterministico, {Text} literal y Self-Healing
+│   │   └── Hotkeys.ahk           # Atajos globales (Ctrl+P, Ctrl+M) y hooks de captura
+│   ├── Reports/
+│   │   └── ForensicDashboard.ahk # Telemetria en vivo, CSV y Dashboard HTML Forense
+│   └── UI/
+│       ├── FloatingHUD.ahk       # Mini-HUD en vivo, Countdown OSD y Mira visual
+│       ├── StepEditor.ahk        # Editor interactivo de pasos y optimizador masivo
+│       └── MainWindow.ahk        # Construccion de ventana Aero Glass y eventos
 ├── Macros/                       # Directorio de almacenamiento de macros (.txt)
-│   └── Macro_POS_Local.txt
-├── Reports/                      # Directorio de reportes de ejecucion (.csv)
-│   └── Screenshots/              # Directorio de capturas automaticas ante fallos (.png)
-├── .gitignore                    # Filtros de exclusion para control de versiones
-└── LICENSE                       # Licencia de software MIT
+└── Reports/                      # Directorio de reportes CSV y Dashboard HTML
+    └── Screenshots/              # Capturas automaticas ante fallos (.png)
 ```
 
 ---

@@ -1,21 +1,21 @@
-# Guia de Operacion - QA POS Automation Macro v2.6
+# Guia de Operacion - QA POS Automation Macro v2.7
 
-Herramienta portable de automatizacion de transacciones para terminales de punto de venta (POS) basada en macros nativas de baja latencia con Centinela POS (Watchdog), editor interactivo de pasos y gestor de actualizaciones.
+Herramienta portable de automatizacion deterministica de transacciones para terminales de punto de venta (POS / Oracle Retail Xstore) con sincronizacion por eventos de log (`WaitPrompt` / `XstoreAction`), coordenadas proporcionales, Auto-Recuperacion en lotes, Mini-HUD flotante en vivo, editor interactivo con mira visual y Dashboard HTML Forense.
 
 ---
 
 ## 1. Descripcion General
 
-QA POS Automation Macro es una aplicacion disenada para automatizar secuencias repetitivas en cajas POS mediante emulacion directa de eventos de teclado en hardware y sistema operativo local.
+QA POS Automation Macro es una aplicacion disenada para automatizar secuencias repetitivas en cajas POS mediante emulacion directa de eventos de teclado y raton sincronizados con el log de Xstore.
 
 Principales capacidades tecnicas:
-- Latencia menor a 5 ms por instruccion mediante llamadas directas a la API de entrada de Windows.
-- Prevencion de perdida de paquetes de teclado comun en soluciones de streaming remoto.
-- **Centinela POS (Watchdog Activo):** Monitoreo continuo del archivo de log transaccional para detener automaticamente la ejecucion ante errores de caja (SKU no registrado, validaciones de cobro rechazadas o caja cerrada), capturando la pantalla del POS en `.png` al instante para facilitar pruebas seguras y desatendidas.
-- Interfaz grafica Windows Vista Aero Glass optimizada para paneles tactiles resistivos y capacitivos de terminales POS.
-- Editor visual interactivo de pasos para modificar, sustituir y reordenar SKUs sin necesidad de editar archivos de texto.
-- Gestor integrado de actualizaciones para monitorear nuevas versiones y mejoras publicadas en GitHub Releases.
-- Control seguro de foco y suspension de hilos con atajos globales no bloqueantes para teclas funcionales F1 a F12.
+- **Sincronizacion por Eventos del Log (`WaitPrompt`):** Captura automaticamente los `[Prompt]` y `[Form]` de `xstore.log` durante la grabacion y espera dinamicamente por ellos al reproducir, evitando desfases cuando la base de datos o red tarda mas de lo esperado.
+- **Identificacion y Verificacion de Botones en Java Swing (`XstoreAction`):** Lee `[Action] <click> -> ...` directamente desde `xstore.log` al grabar para etiquetar cada clic con el nombre real del boton en Xstore, y reintenta automaticamente el clic en reproduccion si Java Swing no registro la accion.
+- **Coordenadas Proporcionales (`WinSize=WxH`):** Adapta automaticamente la posicion de los clics si la macro se ejecuta en una caja POS con resolucion distinta a donde fue grabada.
+- **Centinela POS + Auto-Recuperacion en Lotes (Self-Healing):** Monitoreo continuo cada 150 ms del archivo de log transaccional para detectar errores de caja (SKU no registrado, validaciones rechazadas o caja cerrada), capturando la pantalla del POS en `.png` y el fragmento exacto del log. Si el modo `Auto-Recuperar en Lote` esta activo, cierra el modal de error con `Enter`/`Escape` y continua con el siguiente ciclo.
+- **Mini-HUD Flotante en Vivo:** Barra superior siempre visible sobre Xstore a pantalla completa (`NoActivate`, traslucida a los clics) que muestra el ciclo, paso actual y accion en ejecucion.
+- **Editor de Pasos con Mira Visual y Ejecucion Parcial:** Incluye columna de contexto POS, previsualizador de mira sobre Xstore (`📍 Mira`), prueba de un solo paso (`▶ Paso`), ejecucion desde el paso seleccionado (`⏩ Aqui`) y optimizador masivo (`⚡ Masivo`).
+- **Persistencia Automatica (`config.ini`) y Dashboard HTML Forense:** Guarda todas tus preferencias automaticamente y genera un reporte visual `.html` interactivo con KPIs, capturas de pantalla y extractos de log.
 
 ---
 
@@ -35,7 +35,7 @@ Principales capacidades tecnicas:
 ## 3. Instrucciones de Uso en Caja POS
 
 ### Paso 1: Despliegue
-1. Copie el archivo ejecutable (`QA_POS_Automation_Macro_v2.6.exe` o `QA_POS_Automation_Macro_v2.6_x86.exe`) en cualquier directorio del terminal.
+1. Copie el archivo ejecutable (`QA_POS_Automation_Macro_v2.7.exe` o `QA_POS_Automation_Macro_v2.7_x86.exe`) en cualquier directorio del terminal.
 2. Inicie la aplicacion con permisos de usuario estandar o administrador segun las politicas de la caja POS.
 3. La aplicacion inicializara automaticamente los directorios `Macros/`, `Reports/` y `Reports/Screenshots/` si no existen.
 

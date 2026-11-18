@@ -19,10 +19,10 @@ if not exist "%AHK2EXE%" (
     exit /b 1
 )
 
-for /f "usebackq tokens=*" %%A in (`powershell -NoProfile -Command "(Get-Content '%~dp0QA_POS_Automation_Macro.ahk' -TotalCount 15 | Select-String 'VERSION:\s*([0-9]+\.[0-9]+)').Matches.Groups[1].Value"`) do (
+for /f "usebackq tokens=*" %%A in (`powershell -NoProfile -Command "(Get-Content '%~dp0QA_POS_Automation_Macro.ahk' -TotalCount 15 | Select-String 'VERSION:\s*([0-9]+\.[0-9]+(?:\.[0-9]+)?)').Matches.Groups[1].Value"`) do (
     set "VER_NUM=%%A"
 )
-if "%VER_NUM%"=="" set "VER_NUM=2.3"
+if "%VER_NUM%"=="" set "VER_NUM=2.9.1"
 set "VER_TAG=v%VER_NUM%"
 
 echo [*] Version detectada: %VER_TAG%
@@ -30,31 +30,37 @@ echo [*] Compilador: %AHK2EXE%
 
 set "OUT64=%~dp0QA_POS_Automation_Macro_%VER_TAG%.exe"
 set "OUT32=%~dp0QA_POS_Automation_Macro_%VER_TAG%_x86.exe"
+set "OUTZIP=%~dp0QA_POS_Automation_Macro_%VER_TAG%_Portable.zip"
 
 echo.
 echo [*] Compilando version x64: %OUT64%
-"%AHK2EXE%" /in "%~dp0QA_POS_Automation_Macro.ahk" /out "%OUT64%" /base "%BASE64%"
+"%AHK2EXE%" /in "%~dp0QA_POS_Automation_Macro.ahk" /out "%OUT64%" /base "%BASE64%" /silent verbose
 if %errorlevel% neq 0 (
     echo [ERROR] Fallo la compilacion x64.
-    pause
     exit /b 1
 )
 echo [OK] Compilacion x64 completada.
 
 echo.
 echo [*] Compilando version x86 (32 bits): %OUT32%
-"%AHK2EXE%" /in "%~dp0QA_POS_Automation_Macro.ahk" /out "%OUT32%" /base "%BASE32%"
+"%AHK2EXE%" /in "%~dp0QA_POS_Automation_Macro.ahk" /out "%OUT32%" /base "%BASE32%" /silent verbose
 if %errorlevel% neq 0 (
     echo [ERROR] Fallo la compilacion x86.
-    pause
     exit /b 1
 )
 echo [OK] Compilacion x86 completada.
 
 echo.
+echo [*] Generando paquete portable ZIP: %OUTZIP%
+powershell -NoProfile -Command "Compress-Archive -Path '%OUT64%','%OUT32%','%~dp0Macro_POS_Local.txt','%~dp0GUIA_OPERADOR_POS.md','%~dp0README.md','%~dp0LICENSE' -DestinationPath '%OUTZIP%' -Force"
+if exist "%OUTZIP%" (
+    echo [OK] Paquete portable ZIP generado.
+)
+
+echo.
 echo ==============================================================================
-echo  COMPILACION EXITOSA:
+echo  COMPILACION EXITOSA (%VER_TAG%):
 echo   - %OUT64%
 echo   - %OUT32%
+echo   - %OUTZIP%
 echo ==============================================================================
-ping -n 3 127.0.0.1 >nul
